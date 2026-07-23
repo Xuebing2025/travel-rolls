@@ -74,6 +74,7 @@ function route(name, push = true) {
   });
   if (push) history.pushState({ route: name }, "", `#${name}`);
   window.scrollTo({ top: 0, behavior: "smooth" });
+  if (name === "map") window.TravelRollsMap?.activate();
 }
 
 function openTrip(id) {

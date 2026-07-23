@@ -15,6 +15,7 @@ export default {
     try {
       let response;
       if (url.pathname === "/api/health" && request.method === "GET") response = json({ ok: true, now: Date.now() });
+      else if (url.pathname.startsWith("/_AMapService/")) response = await proxyAmap(request, env, url);
       else if (url.pathname === "/api/auth/request-code" && request.method === "POST") response = await requestCode(request, env);
       else if (url.pathname === "/api/auth/verify-code" && request.method === "POST") response = await verifyCode(request, env);
       else if (url.pathname === "/api/auth/logout" && request.method === "POST") response = await logout(request, env);
@@ -37,6 +38,38 @@ export default {
     }
   },
 };
+
+async function proxyAmap(request, env, url) {
+  if (!env.AMAP_SECURITY_CODE) return json({ error: "map_proxy_not_configured" }, 503);
+  if (!["GET", "POST"].includes(request.method)) return json({ error: "method_not_allowed" }, 405);
+
+  const path = url.pathname.slice("/_AMapService".length);
+  const isStyleRequest = path.startsWith("/v4/map/styles");
+  const isWebServiceRequest = /^\/v(?:3|4|5)\//.test(path);
+  if (!isStyleRequest && !isWebServiceRequest) return json({ error: "map_path_not_allowed" }, 404);
+
+  const target = new URL(path, isStyleRequest ? "https://webapi.amap.com" : "https://restapi.amap.com");
+  target.search = url.search;
+  target.searchParams.set("jscode", env.AMAP_SECURITY_CODE);
+  const headers = new Headers();
+  for (const name of ["accept", "accept-language", "content-type"]) {
+    const value = request.headers.get(name);
+    if (value) headers.set(name, value);
+  }
+  const upstream = await fetch(target, {
+    method: request.method,
+    headers,
+    body: request.method === "POST" ? request.body : null,
+  });
+  const responseHeaders = new Headers(upstream.headers);
+  responseHeaders.delete("set-cookie");
+  if (request.method === "GET" && upstream.ok) responseHeaders.set("cache-control", "public, max-age=300");
+  return new Response(upstream.body, {
+    status: upstream.status,
+    statusText: upstream.statusText,
+    headers: responseHeaders,
+  });
+}
 
 async function requestCode(request, env) {
   const body = await readJson(request);
