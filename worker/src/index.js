@@ -52,7 +52,7 @@ async function proxyAmap(request, env, url) {
   target.search = url.search;
   target.searchParams.set("jscode", env.AMAP_SECURITY_CODE);
   const headers = new Headers();
-  for (const name of ["accept", "accept-language", "content-type"]) {
+  for (const name of ["accept", "accept-language", "content-type", "origin", "referer", "user-agent"]) {
     const value = request.headers.get(name);
     if (value) headers.set(name, value);
   }

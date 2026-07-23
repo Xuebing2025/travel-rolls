@@ -1,0 +1,12 @@
+{
+  "name": "travel-rolls-map-proxy",
+  "private": true,
+  "scripts": {
+    "check": "node --check src/index.js",
+    "deploy": "wrangler deploy",
+    "whoami": "wrangler whoami"
+  },
+  "devDependencies": {
+    "wrangler": "^4.26.0"
+  }
+}

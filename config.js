@@ -3,5 +3,5 @@
 // securityJsCode here; keep it in the Cloudflare Worker secret store.
 window.TRAVEL_ROLLS_CONFIG = Object.freeze({
   amapKey: "",
-  amapServiceHost: "",
+  amapServiceHost: "https://travel-rolls-map-proxy.xuebing277.workers.dev",
 });

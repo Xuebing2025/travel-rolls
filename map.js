@@ -1,12 +1,12 @@
 (function () {
   const COLORS = ["#e4e2dc", "#f7c8ae", "#efa078", "#df7447", "#a9431e"];
   const CITY_VISITS = new Map([
-    ["110000", { count: 1, tripId: "text-roll" }],
-    ["140100", { count: 1, tripId: "shanxi" }],
-    ["140200", { count: 1, tripId: "shanxi" }],
-    ["210200", { count: 1, tripId: "dalian" }],
-    ["330100", { count: 1, tripId: "hangzhou" }],
-    ["810000", { count: 1, tripId: "hong-kong" }],
+    ["110000", { count: 1, tripId: "text-roll", name: "北京市", center: [116.4074, 39.9042] }],
+    ["140100", { count: 1, tripId: "shanxi", name: "太原市", center: [112.5489, 37.8706] }],
+    ["140200", { count: 1, tripId: "shanxi", name: "大同市", center: [113.3001, 40.0768] }],
+    ["210200", { count: 1, tripId: "dalian", name: "大连市", center: [121.6147, 38.914] }],
+    ["330100", { count: 1, tripId: "hangzhou", name: "杭州市", center: [120.1551, 30.2741] }],
+    ["810000", { count: 1, tripId: "hong-kong", name: "香港特别行政区", center: [114.1694, 22.3193] }],
   ]);
   const PROVINCES = [
     ["新疆", "650000"], ["西藏", "540000"], ["青海", "630000"], ["甘肃", "620000"],
@@ -19,6 +19,26 @@
     ["广西", "450000"], ["广东", "440000"], ["海南", "460000"], ["香港", "810000"],
     ["澳门", "820000"], ["台湾", "710000"],
   ];
+  const PROVINCE_CENTERS = {
+    110000: [116.4074, 39.9042], 120000: [117.2008, 39.0842], 130000: [114.5149, 38.0428],
+    140000: [112.5492, 37.857], 150000: [111.7492, 40.8426], 210000: [123.4315, 41.8057],
+    220000: [125.3235, 43.8171], 230000: [126.6424, 45.756], 310000: [121.4737, 31.2304],
+    320000: [118.7969, 32.0603], 330000: [120.1551, 30.2741], 340000: [117.2272, 31.8206],
+    350000: [119.2965, 26.0745], 360000: [115.8582, 28.6829], 370000: [117.1201, 36.6512],
+    410000: [113.6254, 34.7466], 420000: [114.3054, 30.5931], 430000: [112.9388, 28.2282],
+    440000: [113.2644, 23.1291], 450000: [108.3669, 22.817], 460000: [110.1983, 20.044],
+    500000: [106.5516, 29.563], 510000: [104.0665, 30.5723], 520000: [106.6302, 26.6477],
+    530000: [102.8329, 24.8801], 540000: [91.1409, 29.6456], 610000: [108.9398, 34.3416],
+    620000: [103.8343, 36.0611], 630000: [101.7782, 36.6171], 640000: [106.2309, 38.4872],
+    650000: [87.6168, 43.8256], 710000: [121.5654, 25.033], 810000: [114.1694, 22.3193],
+    820000: [113.5439, 22.1987],
+  };
+  const PROVINCE_DISPLAY_NAMES = {
+    北京: "北京市", 天津: "天津市", 上海: "上海市", 重庆: "重庆市",
+    香港: "香港特别行政区", 澳门: "澳门特别行政区",
+    内蒙古: "内蒙古自治区", 广西: "广西壮族自治区", 西藏: "西藏自治区",
+    宁夏: "宁夏回族自治区", 新疆: "新疆维吾尔自治区", 台湾: "台湾省",
+  };
 
   const state = {
     initialized: false,
@@ -30,7 +50,7 @@
     provinceLayer: null,
   };
 
-  const config = window.TRAVEL_ROLLS_CONFIG || {};
+  const config = { ...(window.TRAVEL_ROLLS_CONFIG || {}) };
   const container = document.querySelector("#amap-container");
   const fallback = document.querySelector("#map-fallback");
   const status = document.querySelector("#map-status");
@@ -82,6 +102,15 @@
     });
   }
 
+  async function resolvePublicMapConfig() {
+    if (config.amapKey || !config.amapServiceHost) return;
+    const endpoint = `${config.amapServiceHost.replace(/\/$/, "")}/config`;
+    const response = await fetch(endpoint, { credentials: "omit" });
+    if (!response.ok) throw new Error("map_config_unavailable");
+    const remoteConfig = await response.json();
+    if (typeof remoteConfig.amapKey === "string") config.amapKey = remoteConfig.amapKey.trim();
+  }
+
   async function loadAMap() {
     if (!config.amapKey || !config.amapServiceHost) throw new Error("map_not_configured");
     window._AMapSecurityConfig = {
@@ -90,7 +119,7 @@
     const params = new URLSearchParams({
       v: "2.0",
       key: config.amapKey,
-      plugin: "AMap.DistrictLayer,AMap.DistrictSearch,AMap.Scale,AMap.ToolBar",
+      plugin: "AMap.DistrictLayer,AMap.Scale,AMap.ToolBar",
     });
     await loadScript(`https://webapi.amap.com/maps?${params}`);
     if (!window.AMap) throw new Error("amap_unavailable");
@@ -132,53 +161,35 @@
     return map;
   }
 
-  function searchDistrict(adcode, level, extensions = "base") {
-    return new Promise((resolve, reject) => {
-      const search = new state.AMap.DistrictSearch({ level, subdistrict: 1, extensions, showbiz: false });
-      search.search(adcode, (searchStatus, result) => {
-        if (searchStatus !== "complete" || !result?.districtList?.[0]) {
-          reject(new Error("district_search_failed"));
-          return;
-        }
-        resolve(result.districtList[0]);
-      });
-    });
-  }
-
-  function renderCityList(province) {
+  function renderVisitedCityList(provinceAdcode) {
     const cityList = document.querySelector("#city-list");
     cityList.replaceChildren();
-    const cities = province.districtList || [];
-    cities.forEach((city) => {
-      const adcode = normalizeAdcode(city.adcode);
-      const visit = cityVisit(adcode);
+    const provincePrefix = String(provinceAdcode).slice(0, 2);
+    const cities = [...CITY_VISITS.entries()].filter(([adcode]) => adcode.startsWith(provincePrefix));
+    cities.forEach(([, visit]) => {
       const button = document.createElement("button");
       const name = document.createElement("span");
       const center = document.createElement("small");
       const count = document.createElement("b");
-      name.textContent = city.name;
-      center.textContent = city.center
-        ? `${Number(city.center.lat).toFixed(4)}° N, ${Number(city.center.lng).toFixed(4)}° E`
-        : "中心坐标待返回";
-      count.textContent = visit ? `到访${visit.count}次` : "—";
+      name.textContent = visit.name;
+      center.textContent = `${visit.center[1].toFixed(4)}° N, ${visit.center[0].toFixed(4)}° E`;
+      count.textContent = `到访${visit.count}次`;
       button.append(name, center, count);
-      if (visit?.tripId) button.dataset.openTrip = visit.tripId;
-      else button.disabled = true;
+      button.dataset.openTrip = visit.tripId;
       cityList.append(button);
     });
     if (!cities.length) {
       const empty = document.createElement("p");
       empty.className = "city-list-empty";
-      empty.textContent = "该地区暂未返回地级市列表。";
+      empty.textContent = "该地区暂无已发布的旅行城市。";
       cityList.append(empty);
     }
   }
 
-  async function selectProvince(name, adcode) {
+  function selectProvince(name, adcode) {
     if (!state.initialized) return;
     setStatus(`正在载入${name}地级市边界…`);
     try {
-      const province = await searchDistrict(adcode, "province");
       if (state.countryLayer) state.countryLayer.hide();
       if (state.provinceLayer) state.map.remove(state.provinceLayer);
       state.provinceLayer = new state.AMap.DistrictLayer.Province({
@@ -193,13 +204,14 @@
         },
       });
       state.map.add(state.provinceLayer);
-      if (province.center) state.map.setZoomAndCenter(["北京", "天津", "上海", "重庆"].includes(name) ? 7 : 6, province.center);
-      document.querySelector("#province-name").textContent = province.name || name;
+      const center = PROVINCE_CENTERS[adcode] || [104.2, 35.7];
+      state.map.setZoomAndCenter(["北京", "天津", "上海", "重庆", "香港", "澳门"].includes(name) ? 7 : 6, center);
+      document.querySelector("#province-name").textContent = PROVINCE_DISPLAY_NAMES[name] || `${name}省`;
       document.querySelector("#province-summary").textContent = "按地级市区域显示到访次数；未到访城市保持浅灰色。";
-      renderCityList(province);
+      renderVisitedCityList(adcode);
       provinceSelect.value = adcode;
       nationwideButton.hidden = false;
-      setStatus(`已显示${province.name || name}地级市边界`, "ready");
+      setStatus(`已显示${PROVINCE_DISPLAY_NAMES[name] || `${name}省`}地级市边界`, "ready");
     } catch (error) {
       console.error("province_map_failed", error);
       setStatus(`${name}地图载入失败，请稍后重试`, "error");
@@ -244,13 +256,9 @@
     if (state.initialized || state.loading) return;
     state.loading = true;
     bindControls();
-    if (!config.amapKey || !config.amapServiceHost) {
-      setStatus("地图代码已就绪，等待配置高德 JS Key 与安全代理", "waiting");
-      source.textContent = "地图服务待配置；密钥不得提交到公开仓库。";
-      state.loading = false;
-      return;
-    }
     try {
+      await resolvePublicMapConfig();
+      if (!config.amapKey || !config.amapServiceHost) throw new Error("map_not_configured");
       setStatus("正在安全载入高德地图…");
       state.AMap = await loadAMap();
       state.map = createMap(state.AMap);

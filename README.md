@@ -38,8 +38,12 @@ python -m http.server 4174
 ## 地图配置
 
 1. 在高德开放平台创建“Web端（JS API）”应用，添加预览域名与正式域名白名单。
-2. 将公开的 JS Key 写入 `config.js` 的 `amapKey`。
-3. 部署 Worker 后，将地址写入 `config.js` 的 `amapServiceHost`，例如 `https://api.example.workers.dev`。
-4. 使用 `wrangler secret put AMAP_SECURITY_CODE` 设置安全密钥。禁止把 `securityJsCode` 写入 `config.js`、提交记录或聊天。
+2. 部署 Worker 后，将地址写入 `config.js` 的 `amapServiceHost`，例如 `https://api.example.workers.dev`。
+3. 使用 `wrangler secret put AMAP_SECURITY_CODE` 设置安全密钥。
+4. 使用 `wrangler secret put AMAP_JS_KEY` 保存浏览器 JS Key；Worker 只对允许来源的 `/config` 请求返回它。
+
+禁止把 `securityJsCode` 写入 `config.js`、提交记录或聊天。
 
 未配置 Key 或代理时，页面自动显示34个省级行政区的无边界降级导航，不会展示来源不明的地图轮廓。
+
+`map-worker/` 是可以先于完整后端部署的独立地图安全代理，不依赖 D1 或 R2。

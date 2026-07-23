@@ -21,28 +21,12 @@ const amapStub = `
       setZoomAndCenter(zoom, center) { this.zoom = zoom; this.center = center; }
       resize() {}
     }
-    class DistrictSearch {
-      constructor(options) { this.options = options; }
-      search(adcode, callback) {
-        callback("complete", {
-          districtList: [{
-            name: adcode === "140000" ? "山西省" : "测试省",
-            center: { lng: 112.5, lat: 37.8 },
-            districtList: [
-              { name: "太原市", adcode: "140100", center: { lng: 112.5489, lat: 37.8706 } },
-              { name: "大同市", adcode: "140200", center: { lng: 113.3001, lat: 40.0768 } },
-            ],
-          }],
-        });
-      }
-    }
     window.AMap = {
       Map,
       DistrictLayer: {
         Country: class extends BaseLayer {},
         Province: class extends BaseLayer {},
       },
-      DistrictSearch,
       Scale: class {},
       ToolBar: class {},
     };
