@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="robots" content="noindex, nofollow, noarchive" />
     <meta name="theme-color" content="#f1eadf" />
-    <title>旅卷 · TRAVEL ROLLS</title>
+    <title>TRAVEL ROLLS</title>
     <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
@@ -14,7 +14,7 @@
       <header class="topbar">
         <button class="wordmark" data-route="home" aria-label="返回首页">
           <span class="mark" aria-hidden="true"><i></i><i></i><i></i></span>
-          <span><strong>旅卷</strong><small>TRAVEL ROLLS</small></span>
+          <strong><span>TRAVEL</span> ROLLS</strong>
         </button>
         <nav aria-label="主导航">
           <button data-route="archive">归档</button>
@@ -22,7 +22,7 @@
           <button data-route="search">搜索</button>
         </nav>
         <button class="account-button" data-route="admin">
-          <span class="avatar">卷</span>
+          <span class="avatar">R</span>
           <span>管理中心</span>
         </button>
       </header>
@@ -31,9 +31,8 @@
         <section class="view active" data-view="home" aria-labelledby="home-title">
           <div class="home-grid">
             <div class="home-copy">
-              <p class="kicker">A PHOTOGRAPHIC JOURNAL · 2024—2026</p>
-              <h1 id="home-title"><span>旅</span><span>卷</span></h1>
-              <p class="outline-title">TRAVEL<br />ROLLS</p>
+              <p class="kicker">A PHOTOGRAPHIC JOURNAL · LIFETIME RECORDS</p>
+              <h1 id="home-title"><span>TRAVEL</span><span>ROLLS</span></h1>
               <p class="subtitle">以照片记录走过的经纬</p>
 
               <div class="roll-index" aria-label="最近五次旅行">
@@ -66,21 +65,25 @@
                 <img src="./assets/travel/hong-kong.webp" alt="香港蓝调时刻的海港与城市建筑测试图" />
                 <span class="shade"></span>
                 <p><strong>香港</strong><time>2026.03.08—03.12</time></p>
+                <button class="caption-color-control" data-caption-color="hong-kong" aria-label="更改香港横幅文字颜色">字色 · 自动</button>
               </article>
               <article class="film-strip" style="--i: 1" data-open-trip="shanxi">
                 <img src="./assets/travel/datong.webp" alt="大同古建测试图" />
                 <span class="shade"></span>
                 <p class="light"><strong>大同—太原</strong><time>2025.08.16—08.22</time></p>
+                <button class="caption-color-control" data-caption-color="shanxi" aria-label="更改大同—太原横幅文字颜色">字色 · 自动</button>
               </article>
               <article class="film-strip" style="--i: 2" data-open-trip="hangzhou">
                 <img src="./assets/travel/hangzhou.webp" alt="杭州西湖薄雾测试图" />
                 <span class="shade"></span>
                 <p class="dark"><strong>杭州</strong><time>2025.04.03—04.06</time></p>
+                <button class="caption-color-control" data-caption-color="hangzhou" aria-label="更改杭州横幅文字颜色">字色 · 黑</button>
               </article>
               <article class="film-strip" style="--i: 3" data-open-trip="dalian">
                 <img src="./assets/travel/dalian.webp" alt="大连海岸测试图" />
                 <span class="shade"></span>
                 <p class="dark"><strong>大连</strong><time>2024.09.12—09.16</time></p>
+                <button class="caption-color-control" data-caption-color="dalian" aria-label="更改大连横幅文字颜色">字色 · 黑</button>
               </article>
               <article class="film-strip text-roll" style="--i: 4" data-open-trip="text-roll">
                 <p><strong>北京</strong><time>2024.02.01—02.04</time><em>TEXT ROLL · NO. 005</em></p>
@@ -93,23 +96,54 @@
         <section class="view" data-view="map" aria-labelledby="map-title">
           <div class="section-head">
             <div><p class="kicker">TRAVEL GEOGRAPHY · ACCESS-AWARE</p><h2 id="map-title">地图模式</h2></div>
-            <div class="legend"><span><i class="none"></i>暂无游记</span><span><i class="few"></i>到访1次</span><span><i class="many"></i>到访2次以上</span></div>
+            <div class="legend" aria-label="城市到访次数图例">
+              <span><i class="none"></i>未到访</span>
+              <span><i class="visit-1"></i>1次</span>
+              <span><i class="visit-2"></i>2次</span>
+              <span><i class="visit-3"></i>3次</span>
+              <span><i class="visit-4"></i>4次及以上</span>
+            </div>
           </div>
           <div class="map-layout">
             <div class="map-canvas">
-              <div class="map-notice"><strong>合规地图数据待接入</strong><span>当前展示省市钻取交互，不使用非标准国界轮廓。</span></div>
-              <div class="province-field" role="list" aria-label="省级旅行入口">
-                <button class="province visited-2" data-province="山西"><span>山西</span><small>2座城市 · 1次旅行</small></button>
-                <button class="province visited-1" data-province="香港"><span>香港</span><small>1次旅行</small></button>
-                <button class="province visited-1" data-province="浙江"><span>浙江</span><small>1座城市</small></button>
-                <button class="province visited-1" data-province="辽宁"><span>辽宁</span><small>1座城市</small></button>
-                <button class="province visited-1" data-province="北京"><span>北京</span><small>文字游记</small></button>
-                <button class="province"><span>四川</span><small>暂无游记</small></button>
-                <button class="province"><span>云南</span><small>暂无游记</small></button>
-                <button class="province"><span>新疆</span><small>暂无游记</small></button>
-                <button class="province"><span>广东</span><small>暂无游记</small></button>
+              <div class="map-notice"><strong>完整边界图待配置合规地图服务</strong><span>下方已补全34个省级行政区入口；正式版将按地级市区域着色。</span></div>
+              <div class="province-field" role="list" aria-label="全部省级行政区旅行入口">
+                <button class="province" data-province="新疆"><span>新疆</span></button>
+                <button class="province" data-province="西藏"><span>西藏</span></button>
+                <button class="province" data-province="青海"><span>青海</span></button>
+                <button class="province" data-province="甘肃"><span>甘肃</span></button>
+                <button class="province" data-province="内蒙古"><span>内蒙古</span></button>
+                <button class="province" data-province="黑龙江"><span>黑龙江</span></button>
+                <button class="province" data-province="吉林"><span>吉林</span></button>
+                <button class="province visited-1" data-province="辽宁"><span>辽宁</span><small>1次</small></button>
+                <button class="province" data-province="宁夏"><span>宁夏</span></button>
+                <button class="province visited-4" data-province="山西"><span>山西</span><small>4次</small></button>
+                <button class="province" data-province="河北"><span>河北</span></button>
+                <button class="province visited-1" data-province="北京"><span>北京</span><small>1次</small></button>
+                <button class="province" data-province="天津"><span>天津</span></button>
+                <button class="province" data-province="山东"><span>山东</span></button>
+                <button class="province" data-province="陕西"><span>陕西</span></button>
+                <button class="province" data-province="河南"><span>河南</span></button>
+                <button class="province" data-province="江苏"><span>江苏</span></button>
+                <button class="province" data-province="安徽"><span>安徽</span></button>
+                <button class="province visited-3" data-province="四川"><span>四川</span><small>3次</small></button>
+                <button class="province" data-province="重庆"><span>重庆</span></button>
+                <button class="province" data-province="湖北"><span>湖北</span></button>
+                <button class="province visited-1" data-province="浙江"><span>浙江</span><small>1次</small></button>
+                <button class="province" data-province="上海"><span>上海</span></button>
+                <button class="province" data-province="云南"><span>云南</span></button>
+                <button class="province" data-province="贵州"><span>贵州</span></button>
+                <button class="province" data-province="湖南"><span>湖南</span></button>
+                <button class="province" data-province="江西"><span>江西</span></button>
+                <button class="province" data-province="福建"><span>福建</span></button>
+                <button class="province" data-province="广西"><span>广西</span></button>
+                <button class="province visited-2" data-province="广东"><span>广东</span><small>2次</small></button>
+                <button class="province" data-province="海南"><span>海南</span></button>
+                <button class="province visited-2" data-province="香港"><span>香港</span><small>2次</small></button>
+                <button class="province" data-province="澳门"><span>澳门</span></button>
+                <button class="province" data-province="台湾"><span>台湾</span></button>
               </div>
-              <p class="map-source">正式版将接入具备合法来源的行政区划边界，并在此展示数据年份与来源信息。</p>
+              <p class="map-source">边界数据必须来自合规地图服务；接入后将在此展示审图号、数据年份与来源信息。</p>
             </div>
             <aside class="map-side">
               <p class="kicker">SELECTED PROVINCE</p>
@@ -134,7 +168,17 @@
               <p class="kicker" id="trip-kicker">ROLL 02 · SHANXI</p>
               <h2 id="trip-title">大同—太原</h2>
               <p id="trip-date">2025.08.16—08.22</p>
-              <div class="tag-row"><span>古建</span><span>街景</span><span>精选</span></div>
+              <div class="tag-row" id="trip-tags" aria-label="旅行标签"></div>
+              <button class="tag-editor-toggle" id="tag-editor-toggle" type="button" aria-expanded="false" aria-controls="tag-editor">＋ 编辑标签</button>
+              <div class="tag-editor" id="tag-editor" hidden>
+                <div id="tag-editor-list"></div>
+                <form id="tag-form">
+                  <label><span>标签名称</span><input id="tag-name" maxlength="18" required placeholder="例如：古建" /></label>
+                  <label><span>标签颜色</span><input id="tag-color" type="color" value="#db7a5c" /></label>
+                  <button type="submit">添加标签</button>
+                </form>
+                <small>同名标签在所有城市和旅行中共用颜色。</small>
+              </div>
             </div>
           </article>
           <div class="trip-body">
@@ -201,7 +245,7 @@
         </section>
       </main>
 
-      <footer><span>© 2026 旅卷 · TRAVEL ROLLS</span><span>地图数据与审图信息将在正式接入后展示</span><span>PRIVACY · NO INDEX</span></footer>
+      <footer><span>© 2026 TRAVEL ROLLS</span><span>地图数据与审图信息将在正式接入后展示</span><span>PRIVACY · NO INDEX</span></footer>
     </div>
     <div id="toast" role="status" aria-live="polite"></div>
     <script src="./app.js"></script>
