@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow, noarchive" />
+    <meta name="theme-color" content="#f1eadf" />
+    <title>旅卷 · TRAVEL ROLLS</title>
+    <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="site-frame">
+      <header class="topbar">
+        <button class="wordmark" data-route="home" aria-label="返回首页">
+          <span class="mark" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span><strong>旅卷</strong><small>TRAVEL ROLLS</small></span>
+        </button>
+        <nav aria-label="主导航">
+          <button data-route="archive">归档</button>
+          <button data-route="map">地图</button>
+          <button data-route="search">搜索</button>
+        </nav>
+        <button class="account-button" data-route="admin">
+          <span class="avatar">卷</span>
+          <span>管理中心</span>
+        </button>
+      </header>
+
+      <main>
+        <section class="view active" data-view="home" aria-labelledby="home-title">
+          <div class="home-grid">
+            <div class="home-copy">
+              <p class="kicker">A PHOTOGRAPHIC JOURNAL · 2024—2026</p>
+              <h1 id="home-title"><span>旅</span><span>卷</span></h1>
+              <p class="outline-title">TRAVEL<br />ROLLS</p>
+              <p class="subtitle">以照片记录走过的经纬</p>
+
+              <div class="roll-index" aria-label="最近五次旅行">
+                <div class="index-head"><span>ROLL</span><span>DATE</span><span>DESTINATION</span></div>
+                <button data-open-trip="hong-kong"><span>01</span><time>2026.03</time><strong>香港</strong></button>
+                <button data-open-trip="shanxi"><span>02</span><time>2025.08</time><strong>大同—太原</strong></button>
+                <button data-open-trip="hangzhou"><span>03</span><time>2025.04</time><strong>杭州</strong></button>
+                <button data-open-trip="dalian"><span>04</span><time>2024.09</time><strong>大连</strong></button>
+                <button data-open-trip="text-roll"><span>05</span><time>2024.02</time><strong>北京 · TEXT ROLL</strong></button>
+              </div>
+
+              <button class="map-entry" data-route="map">
+                <span>进入地图模式</span>
+                <span aria-hidden="true">↗</span>
+              </button>
+
+              <dl class="stats">
+                <div><dt>TRIPS</dt><dd>12</dd></div>
+                <div><dt>CITIES</dt><dd>09</dd></div>
+                <div><dt>IMAGES</dt><dd>284</dd></div>
+              </dl>
+            </div>
+
+            <div class="roll-stage" aria-label="最近旅行封面">
+              <div class="stage-meta">
+                <span>ROLLS 01—05</span>
+                <span>COORDS TO BE LOGGED</span>
+              </div>
+              <article class="film-strip" style="--i: 0" data-open-trip="hong-kong">
+                <img src="./assets/travel/hong-kong.webp" alt="香港蓝调时刻的海港与城市建筑测试图" />
+                <span class="shade"></span>
+                <p><strong>香港</strong><time>2026.03.08—03.12</time></p>
+              </article>
+              <article class="film-strip" style="--i: 1" data-open-trip="shanxi">
+                <img src="./assets/travel/datong.webp" alt="大同古建测试图" />
+                <span class="shade"></span>
+                <p class="light"><strong>大同—太原</strong><time>2025.08.16—08.22</time></p>
+              </article>
+              <article class="film-strip" style="--i: 2" data-open-trip="hangzhou">
+                <img src="./assets/travel/hangzhou.webp" alt="杭州西湖薄雾测试图" />
+                <span class="shade"></span>
+                <p class="dark"><strong>杭州</strong><time>2025.04.03—04.06</time></p>
+              </article>
+              <article class="film-strip" style="--i: 3" data-open-trip="dalian">
+                <img src="./assets/travel/dalian.webp" alt="大连海岸测试图" />
+                <span class="shade"></span>
+                <p class="dark"><strong>大连</strong><time>2024.09.12—09.16</time></p>
+              </article>
+              <article class="film-strip text-roll" style="--i: 4" data-open-trip="text-roll">
+                <p><strong>北京</strong><time>2024.02.01—02.04</time><em>TEXT ROLL · NO. 005</em></p>
+              </article>
+              <div class="stage-footer"><span>05 ROLLS</span><span>284 FRAMES</span><span>39°54′N / 116°24′E</span></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="view" data-view="map" aria-labelledby="map-title">
+          <div class="section-head">
+            <div><p class="kicker">TRAVEL GEOGRAPHY · ACCESS-AWARE</p><h2 id="map-title">地图模式</h2></div>
+            <div class="legend"><span><i class="none"></i>暂无游记</span><span><i class="few"></i>到访1次</span><span><i class="many"></i>到访2次以上</span></div>
+          </div>
+          <div class="map-layout">
+            <div class="map-canvas">
+              <div class="map-notice"><strong>合规地图数据待接入</strong><span>当前展示省市钻取交互，不使用非标准国界轮廓。</span></div>
+              <div class="province-field" role="list" aria-label="省级旅行入口">
+                <button class="province visited-2" data-province="山西"><span>山西</span><small>2座城市 · 1次旅行</small></button>
+                <button class="province visited-1" data-province="香港"><span>香港</span><small>1次旅行</small></button>
+                <button class="province visited-1" data-province="浙江"><span>浙江</span><small>1座城市</small></button>
+                <button class="province visited-1" data-province="辽宁"><span>辽宁</span><small>1座城市</small></button>
+                <button class="province visited-1" data-province="北京"><span>北京</span><small>文字游记</small></button>
+                <button class="province"><span>四川</span><small>暂无游记</small></button>
+                <button class="province"><span>云南</span><small>暂无游记</small></button>
+                <button class="province"><span>新疆</span><small>暂无游记</small></button>
+                <button class="province"><span>广东</span><small>暂无游记</small></button>
+              </div>
+              <p class="map-source">正式版将接入具备合法来源的行政区划边界，并在此展示数据年份与来源信息。</p>
+            </div>
+            <aside class="map-side">
+              <p class="kicker">SELECTED PROVINCE</p>
+              <h3 id="province-name">山西省</h3>
+              <p id="province-summary">一段穿过古建、石窟与雨后红墙的夏末行程。</p>
+              <div class="city-list" id="city-list">
+                <button data-open-trip="shanxi"><span>大同市</span><small>40.0768° N, 113.3001° E</small><b>36张</b></button>
+                <button data-open-trip="shanxi"><span>太原市</span><small>37.8706° N, 112.5489° E</small><b>36张</b></button>
+                <button disabled><span>朔州市</span><small>暂无游记</small><b>—</b></button>
+                <button disabled><span>忻州市</span><small>暂无游记</small><b>—</b></button>
+              </div>
+              <button class="solid-button" data-open-trip="shanxi">查看山西旅行卷宗 <span>↗</span></button>
+            </aside>
+          </div>
+        </section>
+
+        <section class="view" data-view="trip" aria-labelledby="trip-title">
+          <button class="back-button" data-route="home">← 返回首页</button>
+          <article class="trip-hero">
+            <img id="trip-hero-image" src="./assets/travel/datong.webp" alt="" />
+            <div class="trip-hero-copy">
+              <p class="kicker" id="trip-kicker">ROLL 02 · SHANXI</p>
+              <h2 id="trip-title">大同—太原</h2>
+              <p id="trip-date">2025.08.16—08.22</p>
+              <div class="tag-row"><span>古建</span><span>街景</span><span>精选</span></div>
+            </div>
+          </article>
+          <div class="trip-body">
+            <aside>
+              <p class="kicker">ROUTE COORDINATES</p>
+              <dl>
+                <div><dt>大同市</dt><dd>40.0768° N<br />113.3001° E</dd></div>
+                <div><dt>太原市</dt><dd>37.8706° N<br />112.5489° E</dd></div>
+              </dl>
+              <div class="trip-actions"><button>♡ 12</button><button>☆ 私人收藏</button></div>
+            </aside>
+            <div class="story">
+              <p class="kicker">FIELD NOTES · MARKDOWN</p>
+              <h3>从云冈的石壁，到雨后的红墙</h3>
+              <p>这是一篇用于验证排版的测试游记。正式内容将由Markdown编辑器维护，支持标题、列表、引用、代码块与照片引用。</p>
+              <blockquote>旅行不是抵达一处地名，而是让时间在照片里重新获得形状。</blockquote>
+              <div class="gallery-toolbar"><div><button class="active">默认</button><button>时间</button></div><span>72 FRAMES</span></div>
+              <div class="photo-grid">
+                <figure class="wide"><img src="./assets/travel/datong.webp" alt="大同古建测试图" /><figcaption>古建 · 大同</figcaption></figure>
+                <figure><img src="./assets/travel/taiyuan.webp" alt="太原红墙测试图" /><figcaption>雨后 · 太原</figcaption></figure>
+                <figure><img src="./assets/travel/hangzhou.webp" alt="薄雾湖面测试图" /><figcaption>行途中 · 测试帧</figcaption></figure>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="view" data-view="archive" aria-labelledby="archive-title">
+          <div class="section-head"><div><p class="kicker">ALL EXPOSED ROLLS</p><h2 id="archive-title">旅行归档</h2></div><p>按旅行发生日期倒序</p></div>
+          <div class="archive-list">
+            <button data-open-trip="hong-kong"><time>2026</time><span>03.08—03.12</span><strong>香港</strong><em>49 FRAMES</em></button>
+            <button data-open-trip="shanxi"><time>2025</time><span>08.16—08.22</span><strong>大同—太原</strong><em>72 FRAMES</em></button>
+            <button data-open-trip="hangzhou"><time>2025</time><span>04.03—04.06</span><strong>杭州</strong><em>61 FRAMES</em></button>
+            <button data-open-trip="dalian"><time>2024</time><span>09.12—09.16</span><strong>大连</strong><em>56 FRAMES</em></button>
+            <button data-open-trip="text-roll"><time>2024</time><span>02.01—02.04</span><strong>北京</strong><em>TEXT ROLL</em></button>
+          </div>
+        </section>
+
+        <section class="view" data-view="search" aria-labelledby="search-title">
+          <div class="search-page">
+            <p class="kicker">SEARCH THE ARCHIVE</p><h2 id="search-title">搜索旅卷</h2>
+            <label><span class="sr-only">搜索旅行、城市、标签或游记全文</span><input id="search-input" type="search" placeholder="搜索旅行、城市、标签或游记全文…" /><kbd>⌘ K</kbd></label>
+            <div class="search-chips"><button>旅行</button><button>城市</button><button>照片</button><button>标签</button></div>
+            <div id="search-results" class="search-empty"><span>⌕</span><p>输入关键词，检索你有权查看的内容。</p><small>私密旅行不会通过搜索结果泄露。</small></div>
+          </div>
+        </section>
+
+        <section class="view" data-view="admin" aria-labelledby="admin-title">
+          <div class="section-head"><div><p class="kicker">PRIVATE CONTROL ROOM</p><h2 id="admin-title">管理中心</h2></div><button class="solid-button">＋ 新建旅行</button></div>
+          <div class="admin-grid">
+            <article class="usage-card"><p>对象存储</p><strong>1.7 <small>/ 9 GB</small></strong><div><i style="width:19%"></i></div><span>距离8GB预警仍有6.3GB</span></article>
+            <article class="usage-card"><p>城市照片上限</p><strong>72 <small>/ 500</small></strong><div><i style="width:14%"></i></div><span>大同 · 太原合计需按城市分别计算</span></article>
+            <article class="usage-card"><p>待完善</p><strong>08 <small>FILES</small></strong><div><i style="width:38%"></i></div><span>缺少拍摄时间或城市归属</span></article>
+          </div>
+          <div class="upload-panel">
+            <div><p class="kicker">UPLOAD WORKFLOW</p><h3>解析 → 自动建议 → 批量修正 → 正式上传</h3><p>首期接受JPG、PNG与MP4。当前为交互原型，尚未连接R2。</p></div>
+            <button id="mock-upload">选择测试文件</button>
+          </div>
+          <div class="admin-table">
+            <div class="table-head"><span>旅行</span><span>状态</span><span>可见性</span><span>照片</span><span>更新</span></div>
+            <button data-open-trip="hong-kong"><strong>香港</strong><span class="status live">已发布</span><span>持链接可见</span><span>49</span><time>2026.03.14</time></button>
+            <button data-open-trip="shanxi"><strong>大同—太原</strong><span class="status live">已发布</span><span>公开</span><span>72</span><time>2025.08.24</time></button>
+            <button><strong>春日杭州</strong><span class="status draft">草稿</span><span>私密</span><span>61</span><time>2025.04.08</time></button>
+          </div>
+        </section>
+      </main>
+
+      <footer><span>© 2026 旅卷 · TRAVEL ROLLS</span><span>地图数据与审图信息将在正式接入后展示</span><span>PRIVACY · NO INDEX</span></footer>
+    </div>
+    <div id="toast" role="status" aria-live="polite"></div>
+    <script src="./app.js"></script>
+  </body>
+</html>

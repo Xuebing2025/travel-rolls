@@ -1,0 +1,12 @@
+.env
+.env.*
+!.env.example
+node_modules/
+dist/
+.wrangler/
+data/
+uploads/
+artifacts/
+*.log
+Thumbs.db
+.DS_Store
