@@ -22,7 +22,12 @@ const { chromium } = require(
   await page.screenshot({ path: "artifacts/map.png", fullPage: true });
   await page.locator('.view.active [data-open-trip="shanxi"]').last().click();
   await page.waitForTimeout(600);
+  await page.click("#tag-editor-toggle");
   await page.screenshot({ path: "artifacts/trip.png", fullPage: true });
+
+  await page.fill("#tag-name", "夜景");
+  await page.click('#tag-form button[type="submit"]');
+  const tagAdded = await page.locator("#trip-tags", { hasText: "夜景" }).count();
 
   const report = {
     title: await page.title(),
@@ -31,6 +36,9 @@ const { chromium } = require(
     brokenImages: await page.locator("img").evaluateAll((images) =>
       images.filter((image) => !image.complete || image.naturalWidth === 0).map((image) => image.src)
     ),
+    tagAdded: tagAdded === 1,
+    provinceEntries: await page.locator("[data-province]").count(),
+    legendLevels: await page.locator(".legend span").count(),
     errors,
   };
   process.stdout.write(JSON.stringify(report, null, 2));
