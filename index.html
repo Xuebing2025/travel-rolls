@@ -21,9 +21,9 @@
           <button data-route="map">地图</button>
           <button data-route="search">搜索</button>
         </nav>
-        <button class="account-button" data-route="admin">
-          <span class="avatar">R</span>
-          <span>管理中心</span>
+        <button class="account-button" data-route="login" id="account-button">
+          <span class="avatar" id="account-avatar">R</span>
+          <span id="account-label">登录</span>
         </button>
       </header>
 
@@ -164,7 +164,7 @@
                 <button disabled><span>朔州市</span><small>暂无游记</small><b>—</b></button>
                 <button disabled><span>忻州市</span><small>暂无游记</small><b>—</b></button>
               </div>
-              <button class="solid-button" data-open-trip="shanxi">查看山西旅行卷宗 <span>↗</span></button>
+              <button class="solid-button" id="province-trip-button" data-open-trip="shanxi">查看山西旅行卷宗 <span>↗</span></button>
             </aside>
           </div>
         </section>
@@ -200,10 +200,25 @@
               <div class="trip-actions"><button>♡ 12</button><button>☆ 私人收藏</button></div>
             </aside>
             <div class="story">
-              <p class="kicker">FIELD NOTES · MARKDOWN</p>
-              <h3>从云冈的石壁，到雨后的红墙</h3>
-              <p>这是一篇用于验证排版的测试游记。正式内容将由Markdown编辑器维护，支持标题、列表、引用、代码块与照片引用。</p>
-              <blockquote>旅行不是抵达一处地名，而是让时间在照片里重新获得形状。</blockquote>
+              <div class="story-head">
+                <p class="kicker">FIELD NOTES · MARKDOWN</p>
+                <button class="outline-button" id="story-edit-toggle" type="button" aria-expanded="false" aria-controls="story-editor">编辑 Markdown</button>
+              </div>
+              <div id="story-rendered" class="markdown-body"></div>
+              <section class="story-editor" id="story-editor" hidden aria-label="Markdown 游记编辑器">
+                <div class="editor-toolbar" aria-label="Markdown 格式提示">
+                  <span># 标题</span><span>**粗体**</span><span>&gt; 引用</span><span>```代码```</span>
+                </div>
+                <label for="story-markdown">Markdown 正文</label>
+                <textarea id="story-markdown" rows="18" spellcheck="true"></textarea>
+                <div class="editor-actions">
+                  <p id="story-editor-status" role="status">未保存的内容仅保留在当前编辑框。</p>
+                  <button class="outline-button" id="story-cancel" type="button">取消</button>
+                  <button class="outline-button" id="story-preview" type="button">预览</button>
+                  <button class="solid-button" id="story-save" type="button">保存版本</button>
+                </div>
+                <small>当前原型将内容与最近 5 个版本保存在本浏览器；完整后端部署后将同步至账户。</small>
+              </section>
               <div class="gallery-toolbar"><div><button class="active">默认</button><button>时间</button></div><span>72 FRAMES</span></div>
               <div class="photo-grid">
                 <figure class="wide"><img src="./assets/travel/datong.webp" alt="大同古建测试图" /><figcaption>古建 · 大同</figcaption></figure>
@@ -234,8 +249,46 @@
           </div>
         </section>
 
+        <section class="view" data-view="login" aria-labelledby="login-title">
+          <div class="auth-layout">
+            <div class="auth-intro">
+              <p class="kicker">INVITATION ONLY · PASSWORDLESS</p>
+              <h2 id="login-title">登录旅卷</h2>
+              <p>受邀用户使用邮箱验证码登录。验证码 10 分钟有效，连续输错 5 次后失效；登录会话最长保留 30 天。</p>
+              <dl>
+                <div><dt>访客</dt><dd>查看受邀内容、点赞与私人收藏</dd></div>
+                <div><dt>编辑者</dt><dd>发布并维护自己创建的旅行</dd></div>
+                <div><dt>管理员</dt><dd>管理全部内容、邀请与账户角色</dd></div>
+              </dl>
+            </div>
+            <div class="auth-card">
+              <form id="request-code-form">
+                <p class="kicker">STEP 01</p>
+                <h3>获取验证码</h3>
+                <label for="login-email">受邀邮箱</label>
+                <input id="login-email" name="email" type="email" autocomplete="email" required placeholder="name@example.com" />
+                <button class="solid-button" type="submit">发送 6 位验证码</button>
+              </form>
+              <form id="verify-code-form" hidden>
+                <p class="kicker">STEP 02</p>
+                <h3>验证身份</h3>
+                <p>验证码已发送至 <strong id="verification-email"></strong></p>
+                <label for="login-code">6 位验证码</label>
+                <input id="login-code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required placeholder="000000" />
+                <button class="solid-button" type="submit">登录</button>
+                <button class="text-button" id="change-login-email" type="button">更换邮箱</button>
+              </form>
+              <p class="auth-status" id="auth-status" role="status">正在检查认证服务…</p>
+              <small>未受邀请的邮箱不会收到验证码，也不会暴露账户是否存在。</small>
+            </div>
+          </div>
+        </section>
+
         <section class="view" data-view="admin" aria-labelledby="admin-title">
-          <div class="section-head"><div><p class="kicker">PRIVATE CONTROL ROOM</p><h2 id="admin-title">管理中心</h2></div><button class="solid-button">＋ 新建旅行</button></div>
+          <div class="section-head">
+            <div><p class="kicker">PRIVATE CONTROL ROOM</p><h2 id="admin-title">管理中心</h2></div>
+            <div class="admin-head-actions"><span id="signed-in-user"></span><button class="outline-button" id="logout-button" type="button">退出登录</button><button class="solid-button">＋ 新建旅行</button></div>
+          </div>
           <div class="admin-grid">
             <article class="usage-card"><p>对象存储</p><strong>1.7 <small>/ 9 GB</small></strong><div><i style="width:19%"></i></div><span>距离8GB预警仍有6.3GB</span></article>
             <article class="usage-card"><p>城市照片上限</p><strong>72 <small>/ 500</small></strong><div><i style="width:14%"></i></div><span>大同 · 太原合计需按城市分别计算</span></article>
@@ -254,7 +307,7 @@
         </section>
       </main>
 
-      <footer><span>© 2026 TRAVEL ROLLS</span><span>地图数据与审图信息将在正式接入后展示</span><span>PRIVACY · NO INDEX</span></footer>
+      <footer><span>© 2026 TRAVEL ROLLS</span><span>地图服务：高德地图 JS API 2.0</span><span>PRIVACY · NO INDEX</span></footer>
     </div>
     <div id="toast" role="status" aria-live="polite"></div>
     <script src="./config.js"></script>
