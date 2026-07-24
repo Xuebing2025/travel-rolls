@@ -20,7 +20,8 @@ const { chromium } = require(
   await page.click('[data-route="map"]');
   await page.waitForTimeout(600);
   await page.screenshot({ path: "artifacts/map.png", fullPage: true });
-  await page.locator('.view.active [data-open-trip="shanxi"]').last().click();
+  await page.selectOption("#province-select", "140000");
+  await page.locator("#province-trip-button").click();
   await page.waitForTimeout(600);
   await page.click("#tag-editor-toggle");
   await page.screenshot({ path: "artifacts/trip.png", fullPage: true });

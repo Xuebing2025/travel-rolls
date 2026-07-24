@@ -39,6 +39,13 @@
     内蒙古: "内蒙古自治区", 广西: "广西壮族自治区", 西藏: "西藏自治区",
     宁夏: "宁夏回族自治区", 新疆: "新疆维吾尔自治区", 台湾: "台湾省",
   };
+  const PROVINCE_TRIPS = new Map([
+    ["110000", { tripId: "text-roll", label: "查看北京旅行卷宗" }],
+    ["140000", { tripId: "shanxi", label: "查看山西旅行卷宗" }],
+    ["210000", { tripId: "dalian", label: "查看辽宁旅行卷宗" }],
+    ["330000", { tripId: "hangzhou", label: "查看浙江旅行卷宗" }],
+    ["810000", { tripId: "hong-kong", label: "查看香港旅行卷宗" }],
+  ]);
 
   const state = {
     initialized: false,
@@ -57,6 +64,7 @@
   const source = document.querySelector("#map-source");
   const provinceSelect = document.querySelector("#province-select");
   const nationwideButton = document.querySelector("#map-nationwide");
+  const provinceTripButton = document.querySelector("#province-trip-button");
 
   function normalizeAdcode(value) {
     return String(value || "").padStart(6, "0").slice(0, 6);
@@ -186,7 +194,32 @@
     }
   }
 
+  function updateProvincePanel(name, adcode) {
+    const displayName = PROVINCE_DISPLAY_NAMES[name] || `${name}省`;
+    document.querySelector("#province-name").textContent = displayName;
+    document.querySelector("#province-summary").textContent =
+      name === "山西"
+        ? "一段穿过古建、石窟与雨后红墙的夏末行程。"
+        : "按地级市区域显示到访次数；未到访城市保持浅灰色。";
+    renderVisitedCityList(adcode);
+
+    const provinceTrip = PROVINCE_TRIPS.get(String(adcode));
+    provinceTripButton.hidden = !provinceTrip;
+    if (!provinceTrip) {
+      provinceTripButton.removeAttribute("data-open-trip");
+      provinceTripButton.replaceChildren();
+      return;
+    }
+    provinceTripButton.dataset.openTrip = provinceTrip.tripId;
+    const arrow = document.createElement("span");
+    arrow.textContent = "↗";
+    provinceTripButton.replaceChildren(document.createTextNode(`${provinceTrip.label} `), arrow);
+  }
+
   function selectProvince(name, adcode) {
+    updateProvincePanel(name, adcode);
+    provinceSelect.value = adcode;
+    nationwideButton.hidden = false;
     if (!state.initialized) return;
     setStatus(`正在载入${name}地级市边界…`);
     try {
@@ -206,11 +239,6 @@
       state.map.add(state.provinceLayer);
       const center = PROVINCE_CENTERS[adcode] || [104.2, 35.7];
       state.map.setZoomAndCenter(["北京", "天津", "上海", "重庆", "香港", "澳门"].includes(name) ? 7 : 6, center);
-      document.querySelector("#province-name").textContent = PROVINCE_DISPLAY_NAMES[name] || `${name}省`;
-      document.querySelector("#province-summary").textContent = "按地级市区域显示到访次数；未到访城市保持浅灰色。";
-      renderVisitedCityList(adcode);
-      provinceSelect.value = adcode;
-      nationwideButton.hidden = false;
       setStatus(`已显示${PROVINCE_DISPLAY_NAMES[name] || `${name}省`}地级市边界`, "ready");
     } catch (error) {
       console.error("province_map_failed", error);
@@ -219,15 +247,19 @@
   }
 
   function showNationwide() {
-    if (!state.initialized) return;
-    if (state.provinceLayer) {
+    if (state.initialized && state.provinceLayer) {
       state.map.remove(state.provinceLayer);
       state.provinceLayer = null;
     }
-    state.countryLayer.show();
-    state.map.setZoomAndCenter(4.1, [104.2, 35.7]);
+    if (state.initialized) {
+      state.countryLayer.show();
+      state.map.setZoomAndCenter(4.1, [104.2, 35.7]);
+    }
     provinceSelect.value = "";
     nationwideButton.hidden = true;
+    provinceTripButton.hidden = true;
+    provinceTripButton.removeAttribute("data-open-trip");
+    provinceTripButton.replaceChildren();
     document.querySelector("#province-name").textContent = "中国";
     document.querySelector("#province-summary").textContent = "选择一个省级行政区，查看地级市边界与旅行记录。";
     document.querySelector("#city-list").replaceChildren();
@@ -247,7 +279,7 @@
     document.querySelectorAll("[data-province]").forEach((button) => {
       button.addEventListener("click", () => {
         const entry = PROVINCES.find(([name]) => name === button.dataset.province);
-        if (entry && state.initialized) selectProvince(entry[0], entry[1]);
+        if (entry) selectProvince(entry[0], entry[1]);
       });
     });
   }
@@ -282,5 +314,6 @@
       if (state.map) setTimeout(() => state.map.resize(), 0);
     },
     selectProvince,
+    showNationwide,
   });
 })();

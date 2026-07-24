@@ -4,4 +4,7 @@
 window.TRAVEL_ROLLS_CONFIG = Object.freeze({
   amapKey: "",
   amapServiceHost: "https://travel-rolls-map-proxy.xuebing277.workers.dev",
+  // Set this to the full application Worker URL after D1, R2 and Resend are deployed.
+  // Keep it blank in the public prototype so the UI never pretends authentication succeeded.
+  apiBase: "",
 });
