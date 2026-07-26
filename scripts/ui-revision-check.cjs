@@ -24,6 +24,14 @@ const { chromium } = require(
   const initialHomeLegacyTrips = await page.locator('.home-grid [data-open-trip]').count();
   const initialLoadingRolls = await page.locator(".home-grid .loading-roll").count();
   await page.evaluate(() => {
+    renderHomeStats(
+      [{ id: "trip-1" }, { id: "trip-2" }, { id: "trip-3" }],
+      [{ city_code: "140100", media_count: 49 }, { city_code: "140200", media_count: 72 }]
+    );
+  });
+  const homeStats = await page.locator(".stats dd").allTextContents();
+  const homeFrames = await page.locator("#home-frame-count").textContent();
+  await page.evaluate(() => {
     authUser = { id: "admin-local", role: "admin", nickname: "管理员" };
     activeTripId = "shanxi";
     serverTripDetails.set("shanxi", { id: "shanxi", can_edit: true });
@@ -118,6 +126,8 @@ const { chromium } = require(
     selectedCity,
     initialHomeLegacyTrips,
     initialLoadingRolls,
+    homeStats,
+    homeFrames,
     typography,
     errors,
   };

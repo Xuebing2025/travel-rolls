@@ -1091,9 +1091,10 @@ async function refreshSession() {
 
 async function loadPublicContent() {
   if (!apiBase) return;
-  const [body, settingsBody] = await Promise.all([
+  const [body, settingsBody, mapBody] = await Promise.all([
     apiRequest("/api/trips", { method: "GET", headers: {} }),
     apiRequest("/api/settings", { method: "GET", headers: {} }),
+    apiRequest("/api/map", { method: "GET", headers: {} }).catch(() => null),
   ]);
   const records = body.trips || [];
   publicTripRecords = records;
@@ -1102,8 +1103,21 @@ async function loadPublicContent() {
     document.querySelector("#site-subtitle").value = settingsBody.settings.subtitle;
   }
   renderArchiveRecords(records);
+  renderHomeStats(records, mapBody?.cities);
   await preloadHomeCovers(records.slice(0, 5));
   renderHomeRecords(records.slice(0, 5));
+}
+
+function renderHomeStats(records, cities) {
+  const tripCount = Array.isArray(records) ? records.length : 0;
+  document.querySelector("#home-trip-count").textContent = String(tripCount).padStart(2, "0");
+  document.querySelector(".stage-footer").firstElementChild.textContent = `${tripCount} ROLLS`;
+  if (!Array.isArray(cities)) return;
+  const cityCount = cities.length;
+  const imageCount = cities.reduce((total, city) => total + Number(city.media_count || 0), 0);
+  document.querySelector("#home-city-count").textContent = String(cityCount).padStart(2, "0");
+  document.querySelector("#home-image-count").textContent = String(imageCount).padStart(2, "0");
+  document.querySelector("#home-frame-count").textContent = `${imageCount} FRAMES`;
 }
 
 function homeCoverUrl(trip) {
@@ -1230,10 +1244,7 @@ function renderHomeRecords(records) {
     }
     stage.insertBefore(strip, stageFooter);
   }
-  const tripsCount = document.querySelector(".stats dd");
-  if (tripsCount) tripsCount.textContent = String(records.length).padStart(2, "0");
   stageMeta.firstElementChild.textContent = "ROLLS 01—05";
-  stageFooter.firstElementChild.textContent = `${records.length} ROLLS`;
   applyCaptionColors();
 }
 
