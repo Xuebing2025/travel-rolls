@@ -45,19 +45,20 @@ const amapStub = `
   });
   page.on("pageerror", (error) => errors.push(error.message));
 
-  await page.route("**/config.js", (route) =>
+  await page.route(/\/config\.js(?:\?.*)?$/, (route) =>
     route.fulfill({
       contentType: "application/javascript",
       body: 'window.TRAVEL_ROLLS_CONFIG={amapKey:"test-public-key",amapServiceHost:"https://api.example.test"};',
     })
   );
-  await page.route("https://webapi.amap.com/maps?**", (route) =>
+  await page.route(/^https:\/\/webapi\.amap\.com\/maps\?/, (route) =>
     route.fulfill({ contentType: "application/javascript", body: amapStub })
   );
 
   await page.goto("http://127.0.0.1:4174", { waitUntil: "networkidle" });
   await page.click('[data-route="map"]');
   await page.waitForFunction(() => document.querySelector("#map-status")?.dataset.kind === "ready");
+  await page.waitForFunction(() => document.querySelector("#map-loading-poster")?.hidden === true);
   const nationwideReady = await page.locator("#map-status").textContent();
   await page.selectOption("#province-select", "140000");
   await page.waitForFunction(() => document.querySelector("#province-name")?.textContent === "山西省");
@@ -66,6 +67,7 @@ const amapStub = `
     nationwideReady,
     liveMapVisible: await page.locator("#amap-container:not([hidden])").count() === 1,
     fallbackHidden: await page.locator("#map-fallback[hidden]").count() === 1,
+    loadingPosterHidden: await page.locator("#map-loading-poster[hidden]").count() === 1,
     provinceName: await page.locator("#province-name").textContent(),
     cityCount: await page.locator("#city-list button").count(),
     visitedCityLinks: await page.locator('#city-list [data-open-trip="shanxi"]').count(),

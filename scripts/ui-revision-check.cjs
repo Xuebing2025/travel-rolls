@@ -10,10 +10,12 @@ const { chromium } = require(
   const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
-  await page.route("**/config.js", (route) =>
+  await page.route(/\/config\.js(?:\?.*)?$/, (route) =>
     route.fulfill({ contentType: "application/javascript", body: "window.TRAVEL_ROLLS_CONFIG={};" })
   );
   await page.goto("http://127.0.0.1:4174", { waitUntil: "networkidle" });
+  const initialHomeLegacyTrips = await page.locator('.home-grid [data-open-trip]').count();
+  const initialLoadingRolls = await page.locator(".home-grid .loading-roll").count();
   await page.evaluate(() => {
     authUser = { id: "admin-local", role: "admin", nickname: "管理员" };
     activeTripId = "shanxi";
@@ -61,8 +63,40 @@ const { chromium } = require(
   const contextActions = await page.locator("#media-action-menu").innerText();
   await page.click('[data-gallery-layout="masonry"]');
   const masonryActionsHidden = await page.locator(
-    '#trip-gallery.masonry [data-public-media="media-a"] figcaption > span:last-child'
+    '#trip-gallery.masonry [data-public-media="media-a"] figcaption'
   ).evaluate((element) => getComputedStyle(element).display === "none");
+  await page.evaluate(() => {
+    apiRequest = async (path, options = {}) => {
+      if (path === "/api/places" && options.method === "POST") {
+        const city = JSON.parse(options.body);
+        return {
+          place: {
+            id: `cn-${city.cityCode}`,
+            country_code: "CN",
+            province_code: city.provinceCode,
+            city_code: city.cityCode,
+            official_name: city.officialName,
+            display_name: city.displayName,
+            level: "city",
+            center_lat: city.centerLat,
+            center_lng: city.centerLng,
+          },
+        };
+      }
+      return {};
+    };
+    adminState.places = [];
+    route("admin", false);
+    setAdminTab("trips");
+    renderPlaceOptions();
+  });
+  await page.selectOption("#trip-form-province", "140000");
+  await page.waitForFunction(() => document.querySelector("#trip-form-city").options.length > 1);
+  const cityOptionCount = await page.locator("#trip-form-city option").count();
+  await page.selectOption("#trip-form-city", "140100");
+  await page.click("#trip-form-add-place");
+  await page.waitForFunction(() => document.querySelector("#trip-form-selected-places").textContent.includes("太原"));
+  const selectedCity = await page.locator("#trip-form-selected-places").innerText();
 
   const report = {
     toolbar: await page.locator(".gallery-toolbar").innerText(),
@@ -73,6 +107,10 @@ const { chromium } = require(
     masonryActionsHidden,
     adminTabs: await page.locator(".admin-tabs").allTextContents(),
     provincePickerPresent: await page.locator("#trip-form-province").count() === 1,
+    cityOptionCount,
+    selectedCity,
+    initialHomeLegacyTrips,
+    initialLoadingRolls,
     errors,
   };
   process.stdout.write(JSON.stringify(report, null, 2));

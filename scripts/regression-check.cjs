@@ -39,7 +39,7 @@ const amapStub = `
   });
   page.on("pageerror", (error) => errors.push(`page: ${error.message}`));
 
-  await page.route("**/config.js", (route) =>
+  await page.route(/\/config\.js(?:\?.*)?$/, (route) =>
     route.fulfill({
       contentType: "application/javascript",
       body: 'window.TRAVEL_ROLLS_CONFIG={amapKey:"test-public-key",amapServiceHost:"https://api.example.test",apiBase:""};',
@@ -59,7 +59,7 @@ const amapStub = `
   const unavailableSubmitNotice = await page.locator("#auth-status").textContent();
 
   await page.click('[data-route="home"]');
-  await page.click('[data-open-trip="shanxi"]');
+  await page.evaluate(() => openTrip("shanxi"));
   await page.click("#story-edit-toggle");
   const markdown = "# 自动化测试\n\n**粗体** 与 `代码`\n\n<script>window.__unsafe = true</script>";
   await page.fill("#story-markdown", markdown);

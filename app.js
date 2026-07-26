@@ -588,21 +588,32 @@ function renderPublicGallery(mediaItems) {
     const like = document.createElement("button");
     like.type = "button";
     like.dataset.likeMedia = media.id;
-    like.textContent = `${media.liked ? "♥" : "♡"} ${media.like_count || 0}`;
+    const likeIcon = document.createElement("span");
+    likeIcon.className = "media-action-icon";
+    likeIcon.textContent = media.liked ? "♥" : "♡";
+    const likeCount = document.createElement("span");
+    likeCount.textContent = String(media.like_count || 0);
+    like.append(likeIcon, likeCount);
     like.setAttribute("aria-label", `点赞，当前 ${media.like_count || 0} 次`);
     like.disabled = !authUser;
     like.title = authUser ? "点赞这张照片" : "登录后可以点赞";
     const favorite = document.createElement("button");
     favorite.type = "button";
     favorite.dataset.favoriteMedia = media.id;
-    favorite.textContent = media.favorited ? "★" : "☆";
+    const favoriteIcon = document.createElement("span");
+    favoriteIcon.className = "media-action-icon";
+    favoriteIcon.textContent = media.favorited ? "★" : "☆";
+    favorite.append(favoriteIcon);
     favorite.setAttribute("aria-label", media.favorited ? "取消收藏" : "收藏");
     favorite.disabled = !authUser;
     favorite.title = authUser ? "加入私人收藏" : "登录后可以收藏";
     const more = document.createElement("button");
     more.type = "button";
     more.dataset.mediaMore = media.id;
-    more.textContent = "•••";
+    const moreIcon = document.createElement("span");
+    moreIcon.className = "media-action-icon";
+    moreIcon.textContent = "•••";
+    more.append(moreIcon);
     more.setAttribute("aria-label", "更多照片操作");
     actions.append(like, favorite, more);
     caption.append(copy, actions);
@@ -972,7 +983,7 @@ function resetTripForm() {
   document.querySelector("#trip-form-city").disabled = true;
   document.querySelector("#trip-form-add-place").disabled = true;
   document.querySelector("#trip-form-place-status").textContent =
-    "城市数据由高德行政区服务提供；已加入的城市会保存在站点数据库中。";
+    "城市数据已内置于站点；已加入的城市会保存在站点数据库中。";
   document.querySelector("#trip-version-list").replaceChildren();
   renderPlaceOptions();
   renderTripTagChoices();
@@ -1090,7 +1101,36 @@ async function loadPublicContent() {
     document.querySelector("#site-subtitle").value = settingsBody.settings.subtitle;
   }
   renderArchiveRecords(records);
+  await preloadHomeCovers(records.slice(0, 5));
   renderHomeRecords(records.slice(0, 5));
+}
+
+function homeCoverUrl(trip) {
+  return trip?.cover_media_id
+    ? `${apiBase}/api/media/${encodeURIComponent(trip.cover_media_id)}/content`
+    : "";
+}
+
+function preloadImage(url) {
+  if (!url) return Promise.resolve();
+  return new Promise((resolve) => {
+    const image = new Image();
+    let finished = false;
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      resolve();
+    };
+    image.addEventListener("load", finish, { once: true });
+    image.addEventListener("error", finish, { once: true });
+    image.src = url;
+    if (image.complete) finish();
+    setTimeout(finish, 8000);
+  });
+}
+
+async function preloadHomeCovers(records) {
+  await Promise.all(records.map((trip) => preloadImage(homeCoverUrl(trip))));
 }
 
 function renderArchiveRecords(records) {
@@ -1167,8 +1207,10 @@ function renderHomeRecords(records) {
     }
     if (trip?.cover_media_id) {
       const image = document.createElement("img");
-      image.src = `${apiBase}/api/media/${encodeURIComponent(trip.cover_media_id)}/content`;
+      image.src = homeCoverUrl(trip);
       image.alt = `${trip.title}旅行封面`;
+      image.loading = "eager";
+      image.decoding = "sync";
       image.style.objectPosition = `${Number(trip.cover_focus_x ?? 0.5) * 100}% ${Number(trip.cover_focus_y ?? 0.5) * 100}%`;
       const shade = document.createElement("span");
       shade.className = "shade";
@@ -2354,7 +2396,7 @@ document.querySelector("#trip-form-province").addEventListener("change", async (
   addButton.disabled = true;
   provinceCityChoices.clear();
   if (!event.target.value) return;
-  status.textContent = "正在从高德行政区服务读取地级市…";
+  status.textContent = "正在读取站内城市数据…";
   try {
     const cities = await window.TravelRollsMap.listProvinceCities(event.target.value);
     citySelect.replaceChildren(new Option("选择城市", ""));
@@ -2363,11 +2405,11 @@ document.querySelector("#trip-form-province").addEventListener("change", async (
       citySelect.add(new Option(`${city.displayName} · ${city.cityCode}`, city.cityCode));
     });
     citySelect.disabled = !cities.length;
-    status.textContent = cities.length ? `已读取 ${cities.length} 个地级行政区。` : "该省份暂无可用城市数据。";
+    status.textContent = cities.length ? `已载入 ${cities.length} 个城市或地区。` : "该省份暂无可用城市数据。";
   } catch (error) {
     console.error("province_city_load_failed", error);
     citySelect.replaceChildren(new Option("城市读取失败", ""));
-    status.textContent = "城市数据读取失败，请检查地图服务后重试。";
+    status.textContent = "站内城市数据不可用，请刷新页面后重试。";
   }
 });
 
