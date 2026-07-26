@@ -59,12 +59,15 @@ const amapStub = `
   await page.click('[data-route="map"]');
   await page.waitForFunction(() => document.querySelector("#map-status")?.dataset.kind === "ready");
   await page.waitForFunction(() => document.querySelector("#map-loading-poster")?.hidden === true);
-  const nationwideReady = await page.locator("#map-status").textContent();
+  await page.waitForFunction(() => document.querySelector("#map-status")?.textContent === "");
+  const loadingStatusFaded = await page.locator("#map-status").evaluate(
+    (element) => element.classList.contains("complete") && getComputedStyle(element).opacity === "0"
+  );
   await page.selectOption("#province-select", "140000");
   await page.waitForFunction(() => document.querySelector("#province-name")?.textContent === "山西省");
 
   const report = {
-    nationwideReady,
+    loadingStatusFaded,
     liveMapVisible: await page.locator("#amap-container:not([hidden])").count() === 1,
     fallbackHidden: await page.locator("#map-fallback[hidden]").count() === 1,
     loadingPosterHidden: await page.locator("#map-loading-poster[hidden]").count() === 1,

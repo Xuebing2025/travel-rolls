@@ -67,6 +67,7 @@
   const provinceSelect = document.querySelector("#province-select");
   const nationwideButton = document.querySelector("#map-nationwide");
   const provinceTripButton = document.querySelector("#province-trip-button");
+  let statusFadeTimer = null;
 
   function normalizeAdcode(value) {
     return String(value || "").padStart(6, "0").slice(0, 6);
@@ -90,8 +91,22 @@
   }
 
   function setStatus(message, kind = "") {
+    clearTimeout(statusFadeTimer);
+    status.classList.remove("complete");
     status.textContent = message;
     status.dataset.kind = kind;
+  }
+
+  function dismissLoadingStatus() {
+    clearTimeout(statusFadeTimer);
+    status.textContent = "载入中";
+    status.dataset.kind = "ready";
+    requestAnimationFrame(() => {
+      status.classList.add("complete");
+      statusFadeTimer = setTimeout(() => {
+        status.textContent = "";
+      }, 380);
+    });
   }
 
   async function loadVisitData() {
@@ -338,7 +353,7 @@
     }
   }
 
-  function showNationwide() {
+  function showNationwide(announce = true) {
     if (state.initialized && state.provinceLayer) {
       state.map.remove(state.provinceLayer);
       state.provinceLayer = null;
@@ -355,7 +370,7 @@
     document.querySelector("#province-name").textContent = "中国";
     document.querySelector("#province-summary").textContent = "选择一个省级行政区，查看地级市边界与旅行记录。";
     document.querySelector("#city-list").replaceChildren();
-    setStatus("全国地级市访问图已载入", "ready");
+    if (announce !== false) setStatus("全国地级市访问图已载入", "ready");
   }
 
   function bindControls() {
@@ -380,11 +395,11 @@
     if (state.initialized || state.loading) return;
     state.loading = true;
     bindControls();
+    setStatus("载入中");
     try {
       await loadVisitData().catch((error) => console.warn("map_data_fallback", error));
       await resolvePublicMapConfig();
       if (!config.amapKey || !config.amapServiceHost) throw new Error("map_not_configured");
-      setStatus("正在安全载入高德地图…");
       state.AMap = await loadAMap();
       container.hidden = false;
       state.map = createMap(state.AMap);
@@ -394,7 +409,8 @@
       dismissLoadingPoster();
       fallback.hidden = true;
       source.textContent = "地图服务：高德地图 JS API 2.0；审图号与版权信息由地图服务在画布中展示。";
-      showNationwide();
+      showNationwide(false);
+      dismissLoadingStatus();
     } catch (error) {
       console.error("china_map_failed", error);
       dismissLoadingPoster();
