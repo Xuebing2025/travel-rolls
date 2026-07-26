@@ -1,0 +1,4 @@
+PRAGMA foreign_keys = ON;
+
+ALTER TABLE media ADD COLUMN safe_key TEXT;
+ALTER TABLE media ADD COLUMN safe_byte_size INTEGER NOT NULL DEFAULT 0;
