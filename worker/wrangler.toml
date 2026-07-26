@@ -2,6 +2,9 @@ name = "travel-rolls-api"
 main = "src/index.js"
 compatibility_date = "2026-07-01"
 
+[triggers]
+crons = ["17 3 * * *"]
+
 [[routes]]
 pattern = "api.xbgzh.site"
 custom_domain = true

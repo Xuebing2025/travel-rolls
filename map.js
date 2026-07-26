@@ -92,6 +92,48 @@
     status.dataset.kind = kind;
   }
 
+  async function loadVisitData() {
+    if (!config.apiBase) return;
+    const response = await fetch(`${String(config.apiBase).replace(/\/$/, "")}/api/map`, {
+      credentials: "include",
+    });
+    if (!response.ok) throw new Error("map_data_unavailable");
+    const body = await response.json();
+    if (!Array.isArray(body.cities)) return;
+    CITY_VISITS.clear();
+    PROVINCE_TRIPS.clear();
+    const provinceCounts = new Map();
+    body.cities.forEach((city) => {
+      const cityCode = normalizeAdcode(city.city_code);
+      const provinceCode = normalizeAdcode(city.province_code || `${cityCode.slice(0, 2)}0000`);
+      CITY_VISITS.set(cityCode, {
+        count: Number(city.visit_count || 0),
+        tripId: city.trip_id,
+        name: city.display_name || city.official_name,
+        center: [Number(city.center_lng), Number(city.center_lat)],
+        mediaCount: Number(city.media_count || 0),
+      });
+      provinceCounts.set(provinceCode, Math.max(provinceCounts.get(provinceCode) || 0, Number(city.visit_count || 0)));
+      if (!PROVINCE_TRIPS.has(provinceCode) && city.trip_id) {
+        const provinceName = PROVINCES.find(([, code]) => code === provinceCode)?.[0] || city.display_name;
+        PROVINCE_TRIPS.set(provinceCode, { tripId: city.trip_id, label: `查看${provinceName}旅行卷宗` });
+      }
+    });
+    document.querySelectorAll("[data-province]").forEach((button) => {
+      const adcode = PROVINCES.find(([name]) => name === button.dataset.province)?.[1];
+      const count = provinceCounts.get(adcode) || 0;
+      button.classList.remove("visited-1", "visited-2", "visited-3", "visited-4");
+      const oldCount = button.querySelector("small");
+      if (oldCount) oldCount.remove();
+      if (count) {
+        button.classList.add(`visited-${Math.min(4, count)}`);
+        const label = document.createElement("small");
+        label.textContent = `${count}次`;
+        button.append(label);
+      }
+    });
+  }
+
   function loadScript(src) {
     return new Promise((resolve, reject) => {
       const existing = document.querySelector('script[data-amap-loader="true"]');
@@ -181,7 +223,7 @@
       const count = document.createElement("b");
       name.textContent = visit.name;
       center.textContent = `${visit.center[1].toFixed(4)}° N, ${visit.center[0].toFixed(4)}° E`;
-      count.textContent = `到访${visit.count}次`;
+      count.textContent = `${visit.mediaCount || 0}张 · 到访${visit.count}次`;
       button.append(name, center, count);
       button.dataset.openTrip = visit.tripId;
       cityList.append(button);
@@ -289,6 +331,7 @@
     state.loading = true;
     bindControls();
     try {
+      await loadVisitData().catch((error) => console.warn("map_data_fallback", error));
       await resolvePublicMapConfig();
       if (!config.amapKey || !config.amapServiceHost) throw new Error("map_not_configured");
       setStatus("正在安全载入高德地图…");

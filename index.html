@@ -20,6 +20,7 @@
           <button data-route="archive">归档</button>
           <button data-route="map">地图</button>
           <button data-route="search">搜索</button>
+          <button data-route="favorites" id="favorites-nav" hidden>我的收藏</button>
         </nav>
         <button class="account-button" data-route="login" id="account-button">
           <span class="avatar" id="account-avatar">R</span>
@@ -197,7 +198,7 @@
                 <div><dt>大同市</dt><dd>40.0768° N<br />113.3001° E</dd></div>
                 <div><dt>太原市</dt><dd>37.8706° N<br />112.5489° E</dd></div>
               </dl>
-              <div class="trip-actions"><button>♡ 12</button><button>☆ 私人收藏</button></div>
+              <div class="trip-actions" id="trip-access-note"><small>点赞与私人收藏位于单张照片上。</small></div>
             </aside>
             <div class="story">
               <div class="story-head">
@@ -219,8 +220,8 @@
                 </div>
                 <small>当前原型将内容与最近 5 个版本保存在本浏览器；完整后端部署后将同步至账户。</small>
               </section>
-              <div class="gallery-toolbar"><div><button class="active">默认</button><button>时间</button></div><span>72 FRAMES</span></div>
-              <div class="photo-grid">
+              <div class="gallery-toolbar"><div><button class="active" data-gallery-sort="manual">默认</button><button data-gallery-sort="time">时间</button><button data-gallery-layout="grid" class="active">网格</button><button data-gallery-layout="masonry">瀑布流</button></div><span id="gallery-count">72 FRAMES</span></div>
+              <div class="photo-grid" id="trip-gallery">
                 <figure class="wide"><img src="./assets/travel/datong.webp" alt="大同古建测试图" /><figcaption>古建 · 大同</figcaption></figure>
                 <figure><img src="./assets/travel/taiyuan.webp" alt="太原红墙测试图" /><figcaption>雨后 · 太原</figcaption></figure>
                 <figure><img src="./assets/travel/hangzhou.webp" alt="薄雾湖面测试图" /><figcaption>行途中 · 测试帧</figcaption></figure>
@@ -247,6 +248,11 @@
             <div class="search-chips"><button>旅行</button><button>城市</button><button>照片</button><button>标签</button></div>
             <div id="search-results" class="search-empty"><span>⌕</span><p>输入关键词，检索你有权查看的内容。</p><small>私密旅行不会通过搜索结果泄露。</small></div>
           </div>
+        </section>
+
+        <section class="view" data-view="favorites" aria-labelledby="favorites-title">
+          <div class="section-head"><div><p class="kicker">PRIVATE SELECTION</p><h2 id="favorites-title">我的收藏</h2></div><p>仅当前账号可见</p></div>
+          <div class="favorite-library" id="favorite-library"><p class="admin-empty">正在读取私人收藏…</p></div>
         </section>
 
         <section class="view" data-view="login" aria-labelledby="login-title">
@@ -287,22 +293,133 @@
         <section class="view" data-view="admin" aria-labelledby="admin-title">
           <div class="section-head">
             <div><p class="kicker">PRIVATE CONTROL ROOM</p><h2 id="admin-title">管理中心</h2></div>
-            <div class="admin-head-actions"><span id="signed-in-user"></span><button class="outline-button" id="logout-button" type="button">退出登录</button><button class="solid-button">＋ 新建旅行</button></div>
+            <div class="admin-head-actions"><span id="signed-in-user"></span><button class="outline-button" id="logout-button" type="button">退出登录</button><button class="solid-button" id="new-trip-button" type="button">＋ 新建旅行</button></div>
           </div>
-          <div class="admin-grid">
-            <article class="usage-card"><p>对象存储</p><strong>1.7 <small>/ 9 GB</small></strong><div><i style="width:19%"></i></div><span>距离8GB预警仍有6.3GB</span></article>
-            <article class="usage-card"><p>城市照片上限</p><strong>72 <small>/ 500</small></strong><div><i style="width:14%"></i></div><span>大同 · 太原合计需按城市分别计算</span></article>
-            <article class="usage-card"><p>待完善</p><strong>08 <small>FILES</small></strong><div><i style="width:38%"></i></div><span>缺少拍摄时间或城市归属</span></article>
+          <div class="admin-tabs" role="tablist" aria-label="管理功能">
+            <button class="active" data-admin-tab="overview" type="button">概览</button>
+            <button data-admin-tab="trips" type="button">旅行与游记</button>
+            <button data-admin-tab="media" type="button">媒体</button>
+            <button data-admin-tab="people" data-admin-only type="button">用户与邀请</button>
+            <button data-admin-tab="tags" type="button">全站标签</button>
+            <button data-admin-tab="data" type="button">站点与数据</button>
           </div>
-          <div class="upload-panel">
-            <div><p class="kicker">UPLOAD WORKFLOW</p><h3>解析 → 自动建议 → 批量修正 → 正式上传</h3><p>首期接受JPG、PNG与MP4。当前为交互原型，尚未连接R2。</p></div>
-            <button id="mock-upload">选择测试文件</button>
+
+          <div class="admin-panel active" data-admin-panel="overview">
+            <div class="admin-grid">
+              <article class="usage-card"><p>对象存储</p><strong id="storage-usage">—</strong><div><i id="storage-usage-bar" style="width:0"></i></div><span id="storage-usage-note">正在读取 R2 统计…</span></article>
+              <article class="usage-card"><p>旅行与媒体</p><strong id="content-count">—</strong><div><i id="content-count-bar" style="width:0"></i></div><span id="content-count-note">正在读取内容统计…</span></article>
+              <article class="usage-card"><p>待处理</p><strong id="pending-count">—</strong><div><i id="pending-count-bar" style="width:0"></i></div><span id="pending-count-note">正在读取待完善项目…</span></article>
+            </div>
+            <div class="upload-panel">
+              <div><p class="kicker">UPLOAD WORKFLOW</p><h3>解析 → 批量修正 → 正式上传</h3><p>接受 JPG、PNG 与 MP4；支持 8MB 分片、失败重试和本机续传记录。</p></div>
+              <button id="mock-upload">选择测试文件</button>
+            </div>
           </div>
-          <div class="admin-table">
-            <div class="table-head"><span>旅行</span><span>状态</span><span>可见性</span><span>照片</span><span>更新</span></div>
-            <button data-open-trip="hong-kong"><strong>香港</strong><span class="status live">已发布</span><span>持链接可见</span><span>49</span><time>2026.03.14</time></button>
-            <button data-open-trip="shanxi"><strong>大同—太原</strong><span class="status live">已发布</span><span>公开</span><span>72</span><time>2025.08.24</time></button>
-            <button><strong>春日杭州</strong><span class="status draft">草稿</span><span>私密</span><span>61</span><time>2025.04.08</time></button>
+
+          <div class="admin-panel" data-admin-panel="trips" hidden>
+            <div class="admin-workspace">
+              <form class="admin-form" id="trip-form">
+                <input id="trip-form-id" type="hidden" />
+                <div class="form-heading"><div><p class="kicker">TRIP EDITOR</p><h3 id="trip-form-title">新建旅行</h3></div><button class="text-button" id="trip-form-reset" type="button">清空</button></div>
+                <label><span>旅行名称</span><input id="trip-form-name" maxlength="120" required placeholder="例如：大同—太原" /></label>
+                <label><span>副标题</span><input id="trip-form-subtitle" maxlength="240" placeholder="可选" /></label>
+                <div class="form-row">
+                  <label><span>开始日期</span><input id="trip-form-start" type="date" /></label>
+                  <label><span>结束日期</span><input id="trip-form-end" type="date" /></label>
+                </div>
+                <label><span>日期来源</span><select id="trip-form-date-source"><option value="auto">按有效照片拍摄时间自动计算</option><option value="manual">手动固定以上日期</option></select></label>
+                <div class="form-row">
+                  <label><span>可见性</span><select id="trip-form-visibility"><option value="private">私密</option><option value="link">持链接可见</option><option value="public">公开</option></select></label>
+                  <label><span>状态</span><select id="trip-form-status"><option value="draft">草稿</option><option value="published">已发布</option></select></label>
+                </div>
+                <label><span>旅行城市（可多选）</span><select id="trip-form-places" multiple size="6"></select></label>
+                <fieldset><legend>全站标签</legend><div class="tag-choice-list" id="trip-form-tags"></div></fieldset>
+                <fieldset>
+                  <legend>首页横幅</legend>
+                  <label><span>封面媒体</span><select id="trip-form-cover"><option value="">黑色 TEXT ROLL 占位</option></select></label>
+                  <div class="form-row">
+                    <label><span>文字位置</span><select id="trip-form-cover-side"><option value="right">右侧</option><option value="left">左侧</option></select></label>
+                    <label><span>文字颜色</span><select id="trip-form-cover-tone"><option value="">自动</option><option value="light">白色</option><option value="dark">黑色</option></select></label>
+                  </div>
+                  <div class="form-row">
+                    <label><span>封面焦点 · 水平</span><input id="trip-form-focus-x" type="range" min="0" max="1" step="0.01" value="0.5" /></label>
+                    <label><span>封面焦点 · 垂直</span><input id="trip-form-focus-y" type="range" min="0" max="1" step="0.01" value="0.5" /></label>
+                  </div>
+                </fieldset>
+                <label><span>Markdown 总游记</span><textarea id="trip-form-markdown" rows="14" placeholder="# 旅行标题"></textarea></label>
+                <p class="form-status" id="trip-form-status-message" role="status"></p>
+                <div class="form-actions"><button class="outline-button danger" id="trip-delete-button" type="button" hidden>移入回收站</button><button class="outline-button" id="trip-share-button" type="button" hidden>生成新的分享链接</button><button class="solid-button" type="submit">保存旅行</button></div>
+                <div class="version-list" id="trip-version-list"></div>
+              </form>
+              <div class="admin-table" id="admin-trip-list">
+                <div class="table-head"><span>旅行</span><span>状态</span><span>可见性</span><span>照片</span><span>更新</span></div>
+                <p class="admin-empty">正在读取旅行…</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="admin-panel" data-admin-panel="media" hidden>
+            <div class="media-admin">
+              <form class="admin-form" id="media-upload-form">
+                <p class="kicker">BATCH INGEST</p><h3>批量上传媒体</h3>
+                <label><span>所属旅行</span><select id="media-trip" required></select></label>
+                <label><span>所属城市</span><select id="media-place" required></select></label>
+                <label class="file-drop"><span>选择 JPG、PNG 或 MP4（可多选）</span><input id="media-files" type="file" accept=".jpg,.jpeg,.png,.mp4,image/jpeg,image/png,video/mp4" multiple /></label>
+                <p class="form-status" id="media-upload-status" role="status"></p>
+                <div class="form-actions"><button class="outline-button" id="media-clear-queue" type="button">清空队列</button><button class="solid-button" type="submit">确认并正式上传</button></div>
+              </form>
+              <section>
+                <div class="form-heading"><div><p class="kicker">REVIEW QUEUE</p><h3>解析与确认</h3></div></div>
+                <div id="media-upload-queue" class="upload-queue"><p class="admin-empty">选择文件后会先读取类型、大小、哈希和可用的拍摄时间；确认城市后才上传。</p></div>
+              </section>
+              <section class="media-library-section">
+                <div class="form-heading"><div><p class="kicker">MEDIA LIBRARY</p><h3>旅行媒体</h3></div><div class="inline-controls"><button class="outline-button" id="media-smart-sort" type="button">重算智能顺序</button><select id="media-sort"><option value="manual">手动顺序</option><option value="time">拍摄时间</option><option value="smart">智能顺序</option></select></div></div>
+                <div id="media-library" class="media-library"><p class="admin-empty">选择旅行以查看媒体。</p></div>
+              </section>
+            </div>
+          </div>
+
+          <div class="admin-panel" data-admin-panel="people" hidden>
+            <div class="admin-workspace">
+              <form class="admin-form compact" id="invitation-form">
+                <p class="kicker">INVITE USER</p><h3>邀请用户</h3>
+                <label><span>邮箱</span><input id="invitation-email" type="email" autocomplete="off" required /></label>
+                <label><span>角色</span><select id="invitation-role"><option value="visitor">访客</option><option value="editor">编辑者</option></select></label>
+                <button class="solid-button" type="submit">创建或重新发送邀请</button>
+                <p class="form-status" id="invitation-status" role="status"></p>
+              </form>
+              <div class="management-lists">
+                <section><div class="form-heading"><div><p class="kicker">ACCOUNTS</p><h3>账户</h3></div></div><div id="user-list" class="management-list"></div></section>
+                <section><div class="form-heading"><div><p class="kicker">INVITATIONS</p><h3>邀请记录</h3></div></div><div id="invitation-list" class="management-list"></div></section>
+              </div>
+            </div>
+          </div>
+
+          <div class="admin-panel" data-admin-panel="tags" hidden>
+            <div class="admin-workspace">
+              <form class="admin-form compact" id="global-tag-form">
+                <p class="kicker">GLOBAL TAXONOMY</p><h3>新增全站标签</h3>
+                <label><span>名称</span><input id="global-tag-name" maxlength="24" required /></label>
+                <label><span>颜色</span><input id="global-tag-color" type="color" value="#db7a5c" /></label>
+                <button class="solid-button" type="submit">新增标签</button>
+              </form>
+              <div><div class="form-heading"><div><p class="kicker">SHARED COLORS</p><h3>标签与通用颜色</h3></div></div><div id="global-tag-list" class="management-list"></div></div>
+            </div>
+          </div>
+
+          <div class="admin-panel" data-admin-panel="data" hidden>
+            <div class="admin-workspace">
+              <div class="management-lists">
+                <form class="admin-form compact" id="site-settings-form" data-admin-only>
+                  <p class="kicker">SITE SETTINGS</p><h3>站点文案</h3>
+                  <label><span>固定副标题</span><input id="site-subtitle" maxlength="80" required value="以照片记录走过的经纬" /></label>
+                  <button class="solid-button" type="submit">保存站点设置</button>
+                </form>
+                <section><div class="form-heading"><div><p class="kicker">PORTABLE EXPORT</p><h3>核心数据导出</h3></div></div><p>导出旅行与 Markdown 元数据，不包含原图，也不使用 Cloudflare 专属格式。</p><div class="form-actions left"><button class="outline-button" data-export-format="json" type="button">下载 JSON</button><button class="outline-button" data-export-format="csv" type="button">下载 CSV</button></div></section>
+              </div>
+              <section data-admin-only><div class="form-heading"><div><p class="kicker">AUDIT LOG</p><h3>最近操作</h3></div></div><div id="audit-list" class="management-list"><p class="admin-empty">正在读取操作日志…</p></div></section>
+              <section><div class="form-heading"><div><p class="kicker">30-DAY TRASH</p><h3>回收站</h3></div></div><div id="trash-list" class="management-list"><p class="admin-empty">正在读取回收站…</p></div></section>
+            </div>
           </div>
         </section>
       </main>
