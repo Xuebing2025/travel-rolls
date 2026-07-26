@@ -59,6 +59,9 @@ let activeTripId = "shanxi";
 let toastTimer;
 let authUser = null;
 const serverTripDetails = new Map();
+const publicGalleryMedia = new Map();
+const provinceCityChoices = new Map();
+let publicTripRecords = [];
 const adminState = {
   loaded: false,
   loading: null,
@@ -474,6 +477,7 @@ const businessMessages = {
   privacy_safe_download_pending: "他人上传的原图需先生成隐私脱敏副本，当前暂不能下载。",
   preview_processing: "网页预览文件仍在处理中。",
   video_watermark_unsupported: "视频水印暂不支持；可直接下载视频。",
+  invalid_place: "城市行政区数据无效，请重新选择。",
 };
 
 function apiErrorMessage(error) {
@@ -549,9 +553,16 @@ async function loadPublicGallery(tripId, sort = "manual") {
   renderPublicGallery(body.media || []);
 }
 
+function publicMediaContentUrl(media) {
+  const direct = new URLSearchParams(location.search);
+  const share = direct.get("trip") === activeTripId ? direct.get("share") : "";
+  return `${apiBase}${media.content_url}${share ? `?share=${encodeURIComponent(share)}` : ""}`;
+}
+
 function renderPublicGallery(mediaItems) {
   const gallery = document.querySelector("#trip-gallery");
   gallery.replaceChildren();
+  publicGalleryMedia.clear();
   document.querySelector("#gallery-count").textContent = `${mediaItems.length} FRAMES`;
   if (!mediaItems.length) {
     const empty = document.createElement("p");
@@ -560,16 +571,15 @@ function renderPublicGallery(mediaItems) {
     gallery.append(empty);
     return;
   }
-  mediaItems.forEach((media, position) => {
+  mediaItems.forEach((media) => {
+    publicGalleryMedia.set(media.id, media);
     const figure = document.createElement("figure");
     figure.dataset.publicMedia = media.id;
-    if (position % 7 === 0) figure.className = "wide";
     const visual = document.createElement(media.kind === "video" ? "video" : "img");
-    const direct = new URLSearchParams(location.search);
-    const share = direct.get("trip") === activeTripId ? direct.get("share") : "";
-    visual.src = `${apiBase}${media.content_url}${share ? `?share=${encodeURIComponent(share)}` : ""}`;
+    visual.src = publicMediaContentUrl(media);
     visual.alt = media.description || `${media.place_name}旅行照片`;
     visual.loading = "lazy";
+    visual.dataset.previewMedia = media.id;
     if (media.kind === "video") visual.controls = true;
     const caption = document.createElement("figcaption");
     const copy = document.createElement("span");
@@ -579,33 +589,97 @@ function renderPublicGallery(mediaItems) {
     like.type = "button";
     like.dataset.likeMedia = media.id;
     like.textContent = `${media.liked ? "♥" : "♡"} ${media.like_count || 0}`;
+    like.setAttribute("aria-label", `点赞，当前 ${media.like_count || 0} 次`);
     like.disabled = !authUser;
     like.title = authUser ? "点赞这张照片" : "登录后可以点赞";
     const favorite = document.createElement("button");
     favorite.type = "button";
     favorite.dataset.favoriteMedia = media.id;
-    favorite.textContent = media.favorited ? "★ 已收藏" : "☆ 收藏";
+    favorite.textContent = media.favorited ? "★" : "☆";
+    favorite.setAttribute("aria-label", media.favorited ? "取消收藏" : "收藏");
     favorite.disabled = !authUser;
     favorite.title = authUser ? "加入私人收藏" : "登录后可以收藏";
-    actions.append(like, favorite);
-    if (authUser) {
-      const download = document.createElement("button");
-      download.type = "button";
-      download.dataset.downloadMedia = media.id;
-      download.dataset.mediaKind = media.kind;
-      download.textContent = "↓ 下载";
-      const watermark = document.createElement("button");
-      watermark.type = "button";
-      watermark.dataset.downloadMedia = media.id;
-      watermark.dataset.mediaKind = media.kind;
-      watermark.dataset.watermark = "1";
-      watermark.textContent = "↓ 水印";
-      actions.append(download, watermark);
-    }
+    const more = document.createElement("button");
+    more.type = "button";
+    more.dataset.mediaMore = media.id;
+    more.textContent = "•••";
+    more.setAttribute("aria-label", "更多照片操作");
+    actions.append(like, favorite, more);
     caption.append(copy, actions);
     figure.append(visual, caption);
     gallery.append(figure);
   });
+}
+
+function canEditTrip(tripId) {
+  const detail = serverTripDetails.get(tripId);
+  if (detail) return Boolean(detail.can_edit);
+  const trip = publicTripRecords.find((entry) => entry.id === tripId);
+  return Boolean(authUser && trip && (authUser.role === "admin" || trip.author_id === authUser.id));
+}
+
+function createMediaActionButton(label, dataset = {}) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.textContent = label;
+  Object.assign(button.dataset, dataset);
+  return button;
+}
+
+function buildMediaActions(container, media, tripId, compact = false) {
+  container.replaceChildren();
+  if (authUser) {
+    container.append(createMediaActionButton(
+      compact ? "↓ 原图" : "下载原图",
+      { downloadMedia: media.id, mediaKind: media.kind }
+    ));
+    if (media.kind === "image") {
+      container.append(createMediaActionButton(
+        compact ? "↓ 水印" : "下载水印版",
+        { downloadMedia: media.id, mediaKind: media.kind, watermark: "1" }
+      ));
+    }
+  }
+  if (media.kind === "image" && canEditTrip(tripId)) {
+    container.append(createMediaActionButton("设为封面照片", { setCoverMedia: media.id, coverTrip: tripId }));
+  }
+  if (!container.children.length) {
+    const unavailable = document.createElement("span");
+    unavailable.textContent = "登录后可使用更多操作";
+    container.append(unavailable);
+  }
+}
+
+function showMediaActionMenu(media, tripId, x, y) {
+  const menu = document.querySelector("#media-action-menu");
+  buildMediaActions(menu, media, tripId);
+  menu.hidden = false;
+  const left = Math.min(x, window.innerWidth - menu.offsetWidth - 8);
+  const top = Math.min(y, window.innerHeight - menu.offsetHeight - 8);
+  menu.style.left = `${Math.max(8, left)}px`;
+  menu.style.top = `${Math.max(8, top)}px`;
+}
+
+function hideMediaActionMenu() {
+  document.querySelector("#media-action-menu").hidden = true;
+}
+
+function openMediaPreview(media) {
+  const dialog = document.querySelector("#media-preview-dialog");
+  const visualContainer = document.querySelector("#media-preview-visual");
+  const visual = document.createElement(media.kind === "video" ? "video" : "img");
+  visual.src = publicMediaContentUrl(media);
+  visual.alt = media.description || `${media.place_name}旅行照片`;
+  if (media.kind === "video") {
+    visual.controls = true;
+    visual.autoplay = true;
+  }
+  visualContainer.replaceChildren(visual);
+  document.querySelector("#media-preview-title").textContent = media.description || media.original_filename || "旅行照片";
+  document.querySelector("#media-preview-meta").textContent =
+    `${media.place_name} · ${media.captured_at?.slice(0, 10) || "时间待完善"}`;
+  buildMediaActions(document.querySelector("#media-preview-actions"), media, activeTripId, true);
+  dialog.showModal();
 }
 
 async function downloadMedia(mediaId, withWatermark, kind) {
@@ -782,6 +856,35 @@ function renderPlaceOptions(selectedIds = []) {
     option.selected = selected.has(place.id);
     select.append(option);
   });
+  renderSelectedPlaces();
+  initializeProvincePicker();
+}
+
+function initializeProvincePicker() {
+  const provinceSelect = document.querySelector("#trip-form-province");
+  if (provinceSelect.options.length > 1) return;
+  (window.TravelRollsMap?.provinces || []).forEach((province) => {
+    provinceSelect.add(new Option(province.name, province.adcode));
+  });
+}
+
+function renderSelectedPlaces() {
+  const selectedList = document.querySelector("#trip-form-selected-places");
+  const select = document.querySelector("#trip-form-places");
+  selectedList.replaceChildren();
+  [...select.selectedOptions].forEach((option) => {
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.dataset.removeTripPlace = option.value;
+    remove.textContent = option.textContent.replace(/\s*·\s*\d{6}$/, "");
+    remove.setAttribute("aria-label", `移除城市 ${remove.textContent}`);
+    selectedList.append(remove);
+  });
+  if (!selectedList.children.length) {
+    const empty = document.createElement("small");
+    empty.textContent = "尚未添加城市";
+    selectedList.append(empty);
+  }
 }
 
 function renderTripTagChoices(selectedIds = []) {
@@ -865,6 +968,11 @@ function resetTripForm() {
   document.querySelector("#trip-delete-button").hidden = true;
   document.querySelector("#trip-share-button").hidden = true;
   document.querySelector("#trip-form-cover").replaceChildren(new Option("创建旅行并上传照片后再选择", ""));
+  document.querySelector("#trip-form-city").replaceChildren(new Option("请先选择省份", ""));
+  document.querySelector("#trip-form-city").disabled = true;
+  document.querySelector("#trip-form-add-place").disabled = true;
+  document.querySelector("#trip-form-place-status").textContent =
+    "城市数据由高德行政区服务提供；已加入的城市会保存在站点数据库中。";
   document.querySelector("#trip-version-list").replaceChildren();
   renderPlaceOptions();
   renderTripTagChoices();
@@ -976,6 +1084,7 @@ async function loadPublicContent() {
     apiRequest("/api/settings", { method: "GET", headers: {} }),
   ]);
   const records = body.trips || [];
+  publicTripRecords = records;
   if (settingsBody.settings?.subtitle) {
     document.querySelector(".home-copy .subtitle").textContent = settingsBody.settings.subtitle;
     document.querySelector("#site-subtitle").value = settingsBody.settings.subtitle;
@@ -1035,7 +1144,13 @@ function renderHomeRecords(records) {
     const strip = document.createElement("article");
     strip.className = `film-strip${trip?.cover_media_id ? "" : " text-roll"}`;
     strip.style.setProperty("--i", position);
-    if (trip) strip.dataset.openTrip = trip.id;
+    if (trip) {
+      strip.dataset.openTrip = trip.id;
+      if (trip.cover_media_id) {
+        strip.dataset.coverMedia = trip.cover_media_id;
+        strip.dataset.coverTrip = trip.id;
+      }
+    }
     const caption = document.createElement("p");
     if (trip?.cover_text_side === "left") caption.classList.add("caption-left");
     if (trip?.cover_text_tone === "light") caption.classList.add("caption-white");
@@ -1044,9 +1159,12 @@ function renderHomeRecords(records) {
     name.textContent = trip?.title || "ROLL NOT EXPOSED";
     const date = document.createElement("time");
     date.textContent = trip ? formatTripRange(trip.start_date, trip.end_date) : "COORDS TO BE LOGGED";
-    const emptyLabel = document.createElement("em");
-    emptyLabel.textContent = trip ? `TEXT ROLL · NO. ${String(position + 1).padStart(3, "0")}` : "ROLL NOT EXPOSED";
-    caption.append(name, date, emptyLabel);
+    caption.append(name, date);
+    if (!trip) {
+      const emptyLabel = document.createElement("em");
+      emptyLabel.textContent = "ROLL NOT EXPOSED";
+      caption.append(emptyLabel);
+    }
     if (trip?.cover_media_id) {
       const image = document.createElement("img");
       image.src = `${apiBase}/api/media/${encodeURIComponent(trip.cover_media_id)}/content`;
@@ -1303,7 +1421,80 @@ document.addEventListener("click", (event) => {
   if (tripButton) openTrip(tripButton.dataset.openTrip);
 });
 
+document.addEventListener("contextmenu", (event) => {
+  const galleryFigure = event.target.closest("[data-public-media]");
+  if (galleryFigure) {
+    const media = publicGalleryMedia.get(galleryFigure.dataset.publicMedia);
+    if (media?.kind === "image" && canEditTrip(activeTripId)) {
+      event.preventDefault();
+      showMediaActionMenu(media, activeTripId, event.clientX, event.clientY);
+    }
+    return;
+  }
+  const homeCover = event.target.closest("[data-cover-media][data-cover-trip]");
+  if (homeCover && canEditTrip(homeCover.dataset.coverTrip)) {
+    event.preventDefault();
+    showMediaActionMenu(
+      { id: homeCover.dataset.coverMedia, kind: "image" },
+      homeCover.dataset.coverTrip,
+      event.clientX,
+      event.clientY
+    );
+  }
+});
+
+document.querySelector("#media-preview-close").addEventListener("click", () => {
+  document.querySelector("#media-preview-dialog").close();
+});
+document.querySelector("#media-preview-dialog").addEventListener("click", (event) => {
+  if (event.target === event.currentTarget) event.currentTarget.close();
+});
+document.querySelector("#media-preview-dialog").addEventListener("close", () => {
+  document.querySelector("#media-preview-visual").replaceChildren();
+});
+
 document.addEventListener("click", async (event) => {
+  if (!event.target.closest("#media-action-menu") && !event.target.closest("[data-media-more]")) {
+    hideMediaActionMenu();
+  }
+  const previewMedia = event.target.closest("[data-preview-media]");
+  if (previewMedia) {
+    const media = publicGalleryMedia.get(previewMedia.dataset.previewMedia);
+    if (media) openMediaPreview(media);
+    return;
+  }
+  const moreMedia = event.target.closest("[data-media-more]");
+  if (moreMedia) {
+    const media = publicGalleryMedia.get(moreMedia.dataset.mediaMore);
+    if (media) {
+      const rect = moreMedia.getBoundingClientRect();
+      showMediaActionMenu(media, activeTripId, rect.right, rect.bottom + 5);
+    }
+    return;
+  }
+  const setCover = event.target.closest("[data-set-cover-media]");
+  if (setCover) {
+    setCover.disabled = true;
+    try {
+      const body = await apiRequest(`/api/trips/${encodeURIComponent(setCover.dataset.coverTrip)}`, {
+        method: "PATCH",
+        body: JSON.stringify({ coverMediaId: setCover.dataset.setCoverMedia }),
+      });
+      serverTripDetails.set(body.trip.id, body.trip);
+      if (body.trip.id === activeTripId) {
+        document.querySelector("#trip-hero-image").src =
+          `${apiBase}/api/media/${encodeURIComponent(setCover.dataset.setCoverMedia)}/content`;
+      }
+      await loadPublicContent();
+      hideMediaActionMenu();
+      showToast("已设为首页封面照片");
+    } catch (error) {
+      showToast(apiErrorMessage(error));
+    } finally {
+      setCover.disabled = false;
+    }
+    return;
+  }
   const tab = event.target.closest("[data-admin-tab]");
   if (tab) {
     setAdminTab(tab.dataset.adminTab);
@@ -2153,6 +2344,74 @@ document.querySelector("#new-trip-button").addEventListener("click", () => {
 });
 
 document.querySelector("#trip-form-reset").addEventListener("click", resetTripForm);
+
+document.querySelector("#trip-form-province").addEventListener("change", async (event) => {
+  const citySelect = document.querySelector("#trip-form-city");
+  const addButton = document.querySelector("#trip-form-add-place");
+  const status = document.querySelector("#trip-form-place-status");
+  citySelect.replaceChildren(new Option(event.target.value ? "正在读取城市…" : "请先选择省份", ""));
+  citySelect.disabled = true;
+  addButton.disabled = true;
+  provinceCityChoices.clear();
+  if (!event.target.value) return;
+  status.textContent = "正在从高德行政区服务读取地级市…";
+  try {
+    const cities = await window.TravelRollsMap.listProvinceCities(event.target.value);
+    citySelect.replaceChildren(new Option("选择城市", ""));
+    cities.forEach((city) => {
+      provinceCityChoices.set(city.cityCode, city);
+      citySelect.add(new Option(`${city.displayName} · ${city.cityCode}`, city.cityCode));
+    });
+    citySelect.disabled = !cities.length;
+    status.textContent = cities.length ? `已读取 ${cities.length} 个地级行政区。` : "该省份暂无可用城市数据。";
+  } catch (error) {
+    console.error("province_city_load_failed", error);
+    citySelect.replaceChildren(new Option("城市读取失败", ""));
+    status.textContent = "城市数据读取失败，请检查地图服务后重试。";
+  }
+});
+
+document.querySelector("#trip-form-city").addEventListener("change", (event) => {
+  document.querySelector("#trip-form-add-place").disabled = !event.target.value;
+});
+
+document.querySelector("#trip-form-add-place").addEventListener("click", async (event) => {
+  const cityCode = document.querySelector("#trip-form-city").value;
+  const city = provinceCityChoices.get(cityCode);
+  if (!city) return;
+  event.currentTarget.disabled = true;
+  const status = document.querySelector("#trip-form-place-status");
+  status.textContent = `正在加入${city.officialName}…`;
+  try {
+    const body = await apiRequest("/api/places", {
+      method: "POST",
+      body: JSON.stringify(city),
+    });
+    const place = body.place;
+    const existingIndex = adminState.places.findIndex((entry) => entry.id === place.id);
+    if (existingIndex >= 0) adminState.places[existingIndex] = place;
+    else adminState.places.push(place);
+    const selectedIds = new Set(
+      [...document.querySelector("#trip-form-places").selectedOptions].map((option) => option.value)
+    );
+    selectedIds.add(place.id);
+    renderPlaceOptions([...selectedIds]);
+    status.textContent = `已添加${place.display_name || place.official_name}；可继续选择其他省份和城市。`;
+  } catch (error) {
+    status.textContent = apiErrorMessage(error);
+  } finally {
+    event.currentTarget.disabled = !document.querySelector("#trip-form-city").value;
+  }
+});
+
+document.querySelector("#trip-form-selected-places").addEventListener("click", (event) => {
+  const remove = event.target.closest("[data-remove-trip-place]");
+  if (!remove) return;
+  const option = [...document.querySelector("#trip-form-places").options]
+    .find((entry) => entry.value === remove.dataset.removeTripPlace);
+  if (option) option.selected = false;
+  renderSelectedPlaces();
+});
 
 document.querySelector("#trip-form").addEventListener("submit", async (event) => {
   event.preventDefault();

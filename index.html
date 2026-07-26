@@ -113,8 +113,14 @@
                 <button id="map-nationwide" type="button" hidden>← 返回全国</button>
                 <span id="map-status" role="status">地图模块准备中…</span>
               </div>
-              <div id="amap-container" class="amap-container" aria-label="中国地级市旅行地图" hidden></div>
-              <div id="map-fallback">
+              <div class="map-frame">
+                <div class="map-loading-poster" id="map-loading-poster" aria-hidden="true">
+                  <img src="./assets/travel/china-loading.png" alt="" />
+                  <span>正在载入可交互地图…</span>
+                </div>
+                <div id="amap-container" class="amap-container" aria-label="中国地级市旅行地图" hidden></div>
+              </div>
+              <div id="map-fallback" hidden>
                 <div class="map-notice"><strong>完整边界图等待地图密钥</strong><span>已补全34个省级行政区入口；配置后将替换为地级市边界地图。</span></div>
                 <div class="province-field" role="list" aria-label="全部省级行政区旅行入口">
                 <button class="province" data-province="新疆"><span>新疆</span></button>
@@ -220,7 +226,11 @@
                 </div>
                 <small>当前原型将内容与最近 5 个版本保存在本浏览器；完整后端部署后将同步至账户。</small>
               </section>
-              <div class="gallery-toolbar"><div><button class="active" data-gallery-sort="manual">默认</button><button data-gallery-sort="time">时间</button><button data-gallery-layout="grid" class="active">网格</button><button data-gallery-layout="masonry">瀑布流</button></div><span id="gallery-count">72 FRAMES</span></div>
+              <div class="gallery-toolbar">
+                <div class="gallery-option-group"><strong>排序顺序：</strong><button class="active" data-gallery-sort="manual">默认</button><button data-gallery-sort="time">时间</button></div>
+                <div class="gallery-option-group"><strong>显示方式：</strong><button data-gallery-layout="grid" class="active">网格</button><button data-gallery-layout="masonry">瀑布流</button></div>
+                <span id="gallery-count">72 FRAMES</span>
+              </div>
               <div class="photo-grid" id="trip-gallery">
                 <figure class="wide"><img src="./assets/travel/datong.webp" alt="大同古建测试图" /><figcaption>古建 · 大同</figcaption></figure>
                 <figure><img src="./assets/travel/taiyuan.webp" alt="太原红墙测试图" /><figcaption>雨后 · 太原</figcaption></figure>
@@ -297,11 +307,11 @@
           </div>
           <div class="admin-tabs" role="tablist" aria-label="管理功能">
             <button class="active" data-admin-tab="overview" type="button">概览</button>
-            <button data-admin-tab="trips" type="button">旅行与游记</button>
+            <button data-admin-tab="trips" type="button">旅行</button>
             <button data-admin-tab="media" type="button">媒体</button>
-            <button data-admin-tab="people" data-admin-only type="button">用户与邀请</button>
-            <button data-admin-tab="tags" type="button">全站标签</button>
-            <button data-admin-tab="data" type="button">站点与数据</button>
+            <button data-admin-tab="people" data-admin-only type="button">用户</button>
+            <button data-admin-tab="tags" type="button">标签</button>
+            <button data-admin-tab="data" type="button">数据</button>
           </div>
 
           <div class="admin-panel active" data-admin-panel="overview">
@@ -332,7 +342,17 @@
                   <label><span>可见性</span><select id="trip-form-visibility"><option value="private">私密</option><option value="link">持链接可见</option><option value="public">公开</option></select></label>
                   <label><span>状态</span><select id="trip-form-status"><option value="draft">草稿</option><option value="published">已发布</option></select></label>
                 </div>
-                <label><span>旅行城市（可多选）</span><select id="trip-form-places" multiple size="6"></select></label>
+                <fieldset class="place-picker">
+                  <legend>旅行城市（可多选）</legend>
+                  <div class="form-row">
+                    <label><span>先选择省份</span><select id="trip-form-province"><option value="">选择省份</option></select></label>
+                    <label><span>再选择城市</span><select id="trip-form-city" disabled><option value="">请先选择省份</option></select></label>
+                  </div>
+                  <button class="outline-button" id="trip-form-add-place" type="button" disabled>＋ 添加城市</button>
+                  <div class="selected-place-list" id="trip-form-selected-places"></div>
+                  <select id="trip-form-places" multiple hidden aria-label="已选择的旅行城市"></select>
+                  <small id="trip-form-place-status">城市数据由高德行政区服务提供；已加入的城市会保存在站点数据库中。</small>
+                </fieldset>
                 <fieldset><legend>全站标签</legend><div class="tag-choice-list" id="trip-form-tags"></div></fieldset>
                 <fieldset>
                   <legend>首页横幅</legend>
@@ -422,7 +442,18 @@
             </div>
           </div>
         </section>
-      </main>
+  </main>
+
+  <div class="media-action-menu" id="media-action-menu" hidden role="menu" aria-label="照片操作"></div>
+  <dialog class="media-preview-dialog" id="media-preview-dialog" aria-label="照片放大预览">
+    <button class="preview-close" id="media-preview-close" type="button" aria-label="关闭预览">×</button>
+    <div id="media-preview-visual"></div>
+    <div class="preview-details">
+      <strong id="media-preview-title"></strong>
+      <small id="media-preview-meta"></small>
+      <div id="media-preview-actions"></div>
+    </div>
+  </dialog>
 
       <footer><span>© 2026 TRAVEL ROLLS</span><span>地图服务：高德地图 JS API 2.0</span><span>PRIVACY · NO INDEX</span></footer>
     </div>
