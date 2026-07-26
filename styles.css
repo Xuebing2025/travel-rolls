@@ -132,8 +132,8 @@ nav button:hover { border-color: var(--ink); }
 .map-loading-poster { position: absolute; inset: 0; z-index: 4; width: 100%; height: 570px; overflow: hidden; background: #e7e5df; opacity: 1; transition: opacity .35s ease; }
 .map-loading-poster.complete { opacity: 0; pointer-events: none; }
 .map-loading-poster[hidden] { display: none; }
-.map-loading-poster img { width: 100%; height: 100%; object-fit: cover; object-position: center; filter: saturate(.72) contrast(.96) brightness(1.03); }
-.map-loading-poster::after { content: ""; position: absolute; inset: 0; background: rgba(247,241,231,.08); }
+.map-loading-poster img { width: 100%; height: 100%; object-fit: cover; object-position: center; }
+.map-loading-poster::after { content: ""; position: absolute; inset: 0; background: transparent; }
 .map-loading-poster span { position: absolute; right: 16px; top: 14px; z-index: 1; padding: 7px 10px; background: rgba(249,245,237,.88); color: var(--muted); opacity: 1; transition: opacity .35s ease; font: 10px var(--mono); }
 .map-loading-poster.complete span { opacity: 0; }
 .map-notice { display: flex; justify-content: space-between; gap: 20px; padding: 10px 14px; border: 1px solid #c9a770; background: #fff7df; font-size: 11px; color: #705933; }

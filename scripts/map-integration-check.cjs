@@ -13,7 +13,10 @@ const amapStub = `
       constructor(container, options) {
         this.container = container;
         this.options = options;
+        this.zoom = options.zoom;
+        this.center = options.center;
         this.layers = [];
+        window.__travelRollsTestMap = this;
       }
       add(item) { this.layers.push(item); }
       remove(item) { this.layers = this.layers.filter((entry) => entry !== item); }
@@ -63,11 +66,16 @@ const amapStub = `
   const loadingStatusFaded = await page.locator("#map-status").evaluate(
     (element) => element.classList.contains("complete") && getComputedStyle(element).opacity === "0"
   );
+  const nationwideView = await page.evaluate(() => ({
+    center: window.__travelRollsTestMap.center,
+    zoom: window.__travelRollsTestMap.zoom,
+  }));
   await page.selectOption("#province-select", "140000");
   await page.waitForFunction(() => document.querySelector("#province-name")?.textContent === "山西省");
 
   const report = {
     loadingStatusFaded,
+    nationwideView,
     liveMapVisible: await page.locator("#amap-container:not([hidden])").count() === 1,
     fallbackHidden: await page.locator("#map-fallback[hidden]").count() === 1,
     loadingPosterHidden: await page.locator("#map-loading-poster[hidden]").count() === 1,
