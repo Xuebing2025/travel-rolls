@@ -188,61 +188,20 @@
     return state.amapPromise;
   }
 
-  function loadAmapPlugin(name) {
-    return new Promise((resolve, reject) => {
-      state.AMap.plugin(name, () => {
-        if (state.AMap.DistrictSearch) resolve();
-        else reject(new Error("amap_district_search_unavailable"));
-      });
-    });
-  }
-
-  function districtSearch(options, keyword) {
-    return new Promise((resolve, reject) => {
-      const search = new state.AMap.DistrictSearch(options);
-      search.search(keyword, (statusCode, result) => {
-        if (statusCode === "complete" && result?.districtList?.[0]) resolve(result.districtList[0]);
-        else reject(new Error("amap_district_search_failed"));
-      });
-    });
-  }
-
   async function listProvinceCities(provinceAdcode) {
     const entry = PROVINCES.find(([, code]) => code === String(provinceAdcode));
     if (!entry) throw new Error("invalid_province");
-    await resolvePublicMapConfig();
-    await loadAMap();
-    await loadAmapPlugin("AMap.DistrictSearch");
-    const [provinceName, provinceCode] = entry;
-    const center = PROVINCE_CENTERS[provinceCode] || [104.2, 35.7];
-    const directRegions = new Set(["11", "12", "31", "50", "71", "81", "82"]);
-    if (directRegions.has(provinceCode.slice(0, 2))) {
-      return [{
-        provinceCode,
-        cityCode: provinceCode,
-        officialName: PROVINCE_DISPLAY_NAMES[provinceName] || `${provinceName}省`,
-        displayName: provinceName,
-        centerLng: center[0],
-        centerLat: center[1],
-      }];
-    }
-    const district = await districtSearch({ level: "province", subdistrict: 1, extensions: "base" }, provinceCode);
-    return (district.districtList || [])
-      .filter((city) => /^\d{6}$/.test(String(city.adcode || "")))
-      .map((city) => {
-        const cityCenter = Array.isArray(city.center)
-          ? city.center
-          : [Number(city.center?.lng), Number(city.center?.lat)];
-        return {
-          provinceCode,
-          cityCode: String(city.adcode),
-          officialName: String(city.name || ""),
-          displayName: String(city.name || "").replace(/市$/u, "") || String(city.name || ""),
-          centerLng: Number(cityCenter[0]),
-          centerLat: Number(cityCenter[1]),
-        };
-      })
-      .filter((city) => city.officialName && Number.isFinite(city.centerLng) && Number.isFinite(city.centerLat));
+    const provinceCode = entry[1];
+    const cities = window.TRAVEL_ROLLS_CITY_DATA?.[provinceCode] || [];
+    if (!cities.length) throw new Error("local_city_data_unavailable");
+    return cities.map(([cityCode, officialName, centerLng, centerLat]) => ({
+      provinceCode,
+      cityCode,
+      officialName,
+      displayName: officialName.replace(/市$/u, "") || officialName,
+      centerLng,
+      centerLat,
+    }));
   }
 
   function createCountryLayer(AMap) {
@@ -295,6 +254,11 @@
       map.on("complete", finish);
       setTimeout(finish, 5000);
     });
+  }
+
+  function dismissLoadingPoster() {
+    loadingPoster.classList.add("complete");
+    setTimeout(() => { loadingPoster.hidden = true; }, 380);
   }
 
   function renderVisitedCityList(provinceAdcode) {
@@ -397,7 +361,7 @@
   function bindControls() {
     if (state.controlsBound) return;
     state.controlsBound = true;
-    provinceSelect.replaceChildren(new Option("选择省级行政区", ""));
+    provinceSelect.replaceChildren(new Option("选择一个地区", ""));
     PROVINCES.forEach(([name, adcode]) => provinceSelect.add(new Option(name, adcode)));
     provinceSelect.addEventListener("change", () => {
       const entry = PROVINCES.find(([, adcode]) => adcode === provinceSelect.value);
@@ -427,13 +391,13 @@
       state.initialized = true;
       await waitForMapComplete(state.map);
       requestAnimationFrame(() => container.classList.add("ready"));
-      loadingPoster.hidden = true;
+      dismissLoadingPoster();
       fallback.hidden = true;
       source.textContent = "地图服务：高德地图 JS API 2.0；审图号与版权信息由地图服务在画布中展示。";
       showNationwide();
     } catch (error) {
       console.error("china_map_failed", error);
-      loadingPoster.hidden = true;
+      dismissLoadingPoster();
       container.hidden = true;
       fallback.hidden = false;
       setStatus("地图服务载入失败，已切换至行政区导航", "error");

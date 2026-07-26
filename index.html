@@ -4,10 +4,11 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="robots" content="noindex, nofollow, noarchive" />
-    <meta name="theme-color" content="#f1eadf" />
+    <meta name="theme-color" content="#f7f5f2" />
     <title>TRAVEL ROLLS</title>
     <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="./styles.css" />
+    <link rel="preconnect" href="https://api.xbgzh.site" crossorigin />
+    <link rel="stylesheet" href="./styles.css?v=20260726c" />
   </head>
   <body>
     <div class="site-frame">
@@ -38,11 +39,7 @@
 
               <div class="roll-index" aria-label="最近五次旅行">
                 <div class="index-head"><span>ROLL</span><span>DATE</span><span>DESTINATION</span></div>
-                <button data-open-trip="hong-kong"><span>01</span><time>2026.03</time><strong>香港</strong></button>
-                <button data-open-trip="shanxi"><span>02</span><time>2025.08</time><strong>大同—太原</strong></button>
-                <button data-open-trip="hangzhou"><span>03</span><time>2025.04</time><strong>杭州</strong></button>
-                <button data-open-trip="dalian"><span>04</span><time>2024.09</time><strong>大连</strong></button>
-                <button data-open-trip="text-roll"><span>05</span><time>2024.02</time><strong>北京 · TEXT ROLL</strong></button>
+                <p class="roll-index-loading">正在读取最近旅行…</p>
               </div>
 
               <button class="map-entry" data-route="map">
@@ -62,33 +59,11 @@
                 <span>ROLLS 01—05</span>
                 <span>COORDS TO BE LOGGED</span>
               </div>
-              <article class="film-strip" style="--i: 0" data-open-trip="hong-kong">
-                <img src="./assets/travel/hong-kong.webp" alt="香港蓝调时刻的海港与城市建筑测试图" />
-                <span class="shade"></span>
-                <p><strong>香港</strong><time>2026.03.08—03.12</time></p>
-                <button class="caption-color-control" data-caption-color="hong-kong" aria-label="更改香港横幅文字颜色">字色 · 自动</button>
-              </article>
-              <article class="film-strip" style="--i: 1" data-open-trip="shanxi">
-                <img src="./assets/travel/datong.webp" alt="大同古建测试图" />
-                <span class="shade"></span>
-                <p class="light"><strong>大同—太原</strong><time>2025.08.16—08.22</time></p>
-                <button class="caption-color-control" data-caption-color="shanxi" aria-label="更改大同—太原横幅文字颜色">字色 · 自动</button>
-              </article>
-              <article class="film-strip" style="--i: 2" data-open-trip="hangzhou">
-                <img src="./assets/travel/hangzhou.webp" alt="杭州西湖薄雾测试图" />
-                <span class="shade"></span>
-                <p class="dark"><strong>杭州</strong><time>2025.04.03—04.06</time></p>
-                <button class="caption-color-control" data-caption-color="hangzhou" aria-label="更改杭州横幅文字颜色">字色 · 黑</button>
-              </article>
-              <article class="film-strip" style="--i: 3" data-open-trip="dalian">
-                <img src="./assets/travel/dalian.webp" alt="大连海岸测试图" />
-                <span class="shade"></span>
-                <p class="dark"><strong>大连</strong><time>2024.09.12—09.16</time></p>
-                <button class="caption-color-control" data-caption-color="dalian" aria-label="更改大连横幅文字颜色">字色 · 黑</button>
-              </article>
-              <article class="film-strip text-roll" style="--i: 4" data-open-trip="text-roll">
-                <p><strong>北京</strong><time>2024.02.01—02.04</time><em>TEXT ROLL · NO. 005</em></p>
-              </article>
+              <article class="film-strip text-roll loading-roll" style="--i:0"><p><strong>ROLL LOADING</strong></p></article>
+              <article class="film-strip text-roll loading-roll" style="--i:1"><p><strong>ROLL LOADING</strong></p></article>
+              <article class="film-strip text-roll loading-roll" style="--i:2"><p><strong>ROLL LOADING</strong></p></article>
+              <article class="film-strip text-roll loading-roll" style="--i:3"><p><strong>ROLL LOADING</strong></p></article>
+              <article class="film-strip text-roll loading-roll" style="--i:4"><p><strong>ROLL LOADING</strong></p></article>
               <div class="stage-footer"><span>05 ROLLS</span><span>284 FRAMES</span><span>39°54′N / 116°24′E</span></div>
             </div>
           </div>
@@ -108,15 +83,14 @@
           <div class="map-layout">
             <div class="map-canvas">
               <div class="map-toolbar">
-                <label for="province-select">省级行政区</label>
-                <select id="province-select"><option value="">选择省级行政区</option></select>
+                <select id="province-select" aria-label="选择一个地区"><option value="">选择一个地区</option></select>
                 <button id="map-nationwide" type="button" hidden>← 返回全国</button>
                 <span id="map-status" role="status">地图模块准备中…</span>
               </div>
               <div class="map-frame">
                 <div class="map-loading-poster" id="map-loading-poster" aria-hidden="true">
                   <img src="./assets/travel/china-loading.png" alt="" />
-                  <span>正在载入可交互地图…</span>
+                  <span>载入中</span>
                 </div>
                 <div id="amap-container" class="amap-container" aria-label="中国地级市旅行地图" hidden></div>
               </div>
@@ -204,7 +178,7 @@
                 <div><dt>大同市</dt><dd>40.0768° N<br />113.3001° E</dd></div>
                 <div><dt>太原市</dt><dd>37.8706° N<br />112.5489° E</dd></div>
               </dl>
-              <div class="trip-actions" id="trip-access-note"><small>点赞与私人收藏位于单张照片上。</small></div>
+              <div class="trip-actions" id="trip-access-note"></div>
             </aside>
             <div class="story">
               <div class="story-head">
@@ -345,13 +319,13 @@
                 <fieldset class="place-picker">
                   <legend>旅行城市（可多选）</legend>
                   <div class="form-row">
-                    <label><span>先选择省份</span><select id="trip-form-province"><option value="">选择省份</option></select></label>
-                    <label><span>再选择城市</span><select id="trip-form-city" disabled><option value="">请先选择省份</option></select></label>
+                    <label><span>省份</span><select id="trip-form-province"><option value="">选择省份</option></select></label>
+                    <label><span>城市</span><select id="trip-form-city" disabled><option value="">请先选择省份</option></select></label>
                   </div>
                   <button class="outline-button" id="trip-form-add-place" type="button" disabled>＋ 添加城市</button>
                   <div class="selected-place-list" id="trip-form-selected-places"></div>
                   <select id="trip-form-places" multiple hidden aria-label="已选择的旅行城市"></select>
-                  <small id="trip-form-place-status">城市数据由高德行政区服务提供；已加入的城市会保存在站点数据库中。</small>
+                  <small id="trip-form-place-status">城市数据已内置于站点；已加入的城市会保存在站点数据库中。</small>
                 </fieldset>
                 <fieldset><legend>全站标签</legend><div class="tag-choice-list" id="trip-form-tags"></div></fieldset>
                 <fieldset>
@@ -458,8 +432,9 @@
       <footer><span>© 2026 TRAVEL ROLLS</span><span>地图服务：高德地图 JS API 2.0</span><span>PRIVACY · NO INDEX</span></footer>
     </div>
     <div id="toast" role="status" aria-live="polite"></div>
-    <script src="./config.js"></script>
-    <script src="./map.js"></script>
-    <script src="./app.js"></script>
+    <script src="./config.js?v=20260726c"></script>
+    <script src="./city-data.js?v=20260726c"></script>
+    <script src="./map.js?v=20260726c"></script>
+    <script src="./app.js?v=20260726c"></script>
   </body>
 </html>

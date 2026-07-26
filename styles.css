@@ -1,6 +1,17 @@
+@font-face {
+  font-family: "LXGW WenKai GB Web";
+  src:
+    local("LXGW WenKai GB"),
+    local("霞鹜文楷 GB"),
+    url("./assets/fonts/LXGWWenKaiGB-Regular.ttf?v=20260726c") format("truetype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
 :root {
   color-scheme: light;
-  --paper: #f1eadf;
+  --paper: #f7f5f2;
   --paper-2: #e8dfd2;
   --ink: #191817;
   --muted: #766e64;
@@ -14,14 +25,15 @@
   --blue: #cdd5d2;
   --black: #090b0a;
   --lime: #d9e45c;
-  --mono: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
-  --serif: "Songti SC", "STSong", "Noto Serif SC", serif;
-  --sans: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+  --wenkai: "LXGW WenKai GB Web", "LXGW WenKai GB", "霞鹜文楷 GB", sans-serif;
+  --mono: var(--wenkai);
+  --serif: var(--wenkai);
+  --sans: var(--wenkai);
 }
 
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
-body { margin: 0; background: #d8d1c7; color: var(--ink); font-family: var(--sans); }
+body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--sans); }
 button, input, textarea, select { font: inherit; }
 button { color: inherit; }
 button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid var(--red-dark); outline-offset: 3px; }
@@ -62,6 +74,7 @@ nav button:hover { border-color: var(--ink); }
 .roll-index button:hover { padding-left: 10px; background: rgba(255,255,255,.28); }
 .roll-index button span, .roll-index time { font: 10px var(--mono); color: var(--muted); }
 .roll-index strong { font: 600 13px var(--serif); letter-spacing: .08em; }
+.roll-index-loading { margin: 0; padding: 14px 3px; border-top: 1px solid var(--line); color: var(--muted); font: 10px var(--mono); }
 .map-entry { margin-top: 18px; padding: 13px 0; border: 0; border-bottom: 1px solid var(--ink); background: transparent; display: flex; justify-content: space-between; cursor: pointer; font: 12px var(--mono); }
 .stats { display: flex; gap: 30px; margin: 24px 0 0; }
 .stats div { display: flex; gap: 8px; align-items: baseline; }
@@ -88,6 +101,9 @@ nav button:hover { border-color: var(--ink); }
 .film-strip.text-roll { min-height: 70px; border: 1px solid #282b28; }
 .film-strip.text-roll p { position: static; height: 100%; align-items: flex-start; text-align: left; background: repeating-linear-gradient(90deg, #111 0 12px, #0a0b0a 12px 24px); }
 .film-strip.text-roll em { margin-left: auto; font: 8px var(--mono); color: #81847f; }
+.film-strip.loading-roll { animation: none; opacity: .34; pointer-events: none; }
+.film-strip.loading-roll p { justify-content: center; }
+.film-strip.loading-roll strong { font: 9px var(--mono); color: #777b76; letter-spacing: .16em; }
 
 .section-head { padding: 52px 4vw 30px; display: flex; justify-content: space-between; align-items: end; border-bottom: 1px solid var(--line); }
 .section-head h2, .search-page h2 { margin: 4px 0 0; font: 700 clamp(45px, 6vw, 92px)/1 var(--serif); letter-spacing: -.05em; }
@@ -112,7 +128,8 @@ nav button:hover { border-color: var(--ink); }
 .amap-container.ready { opacity: 1; }
 .amap-container[hidden], #map-fallback[hidden] { display: none; }
 .map-frame { position: relative; width: 100%; height: 570px; overflow: hidden; background: #e7e5df; }
-.map-loading-poster { position: absolute; inset: 0; z-index: 4; width: 100%; height: 570px; overflow: hidden; background: #e7e5df; transition: opacity .35s ease; }
+.map-loading-poster { position: absolute; inset: 0; z-index: 4; width: 100%; height: 570px; overflow: hidden; background: #e7e5df; opacity: 1; transition: opacity .35s ease; }
+.map-loading-poster.complete { opacity: 0; pointer-events: none; }
 .map-loading-poster[hidden] { display: none; }
 .map-loading-poster img { width: 100%; height: 100%; object-fit: cover; object-position: center; filter: saturate(.72) contrast(.96) brightness(1.03); }
 .map-loading-poster::after { content: ""; position: absolute; inset: 0; background: rgba(247,241,231,.08); }
@@ -318,12 +335,15 @@ kbd { font: 9px var(--mono); padding: 5px 7px; border: 1px solid var(--line); }
 .search-result small { color: var(--muted); font: 8px var(--mono); }
 .search-result p { margin: 7px 0 0; color: var(--muted); font-size: 10px; }
 #trip-gallery figure figcaption { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-#trip-gallery figure figcaption > span:last-child { display: flex; gap: 5px; white-space: nowrap; }
-#trip-gallery figure figcaption button { padding: 5px 7px; border: 0; background: transparent; color: inherit; cursor: pointer; font-size: 18px; line-height: 1; }
+#trip-gallery figure figcaption > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#trip-gallery figure figcaption > span:last-child { display: flex; flex: 0 0 auto; gap: 1px; white-space: nowrap; }
+#trip-gallery figure figcaption button { display: inline-flex; align-items: center; gap: 2px; min-width: 0; padding: 3px 4px; border: 0; background: transparent; color: inherit; cursor: pointer; font: 11px/1 var(--mono); }
+#trip-gallery .media-action-icon { font-family: Arial, sans-serif; font-size: 17px; font-weight: 900; line-height: .9; transform: translateY(-.5px); }
+#trip-gallery [data-media-more] .media-action-icon { font-size: 15px; letter-spacing: -1px; }
 #trip-gallery.masonry { display: block; columns: 3; column-gap: 10px; }
 #trip-gallery.masonry figure { display: inline-block; width: 100%; margin: 0 0 10px; break-inside: avoid; }
 #trip-gallery.masonry figure img, #trip-gallery.masonry figure video { height: auto; aspect-ratio: auto; object-fit: contain; }
-#trip-gallery.masonry figure figcaption > span:last-child { display: none; }
+#trip-gallery.masonry figure figcaption { display: none; }
 .media-action-menu { position: fixed; z-index: 160; min-width: 190px; padding: 6px; border: 1px solid var(--ink); background: #fbf6ed; box-shadow: 0 14px 36px rgba(22,18,13,.2); }
 .media-action-menu button { display: block; width: 100%; padding: 10px 12px; border: 0; background: transparent; color: var(--ink); text-align: left; cursor: pointer; font-size: 13px; }
 .media-action-menu button:hover { background: #eee5d8; }

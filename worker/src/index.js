@@ -1165,7 +1165,9 @@ async function serveMediaContent(request, env, url) {
   const download = url.searchParams.get("download") === "1";
   const ownsOriginal = user && (user.role === "admin" || user.id === media.uploader_id);
   if (download && !user) return json({ error: "authentication_required" }, 401);
-  const key = ownsOriginal ? media.original_key : (download ? media.safe_key : media.web_key);
+  const key = download
+    ? (ownsOriginal ? media.original_key : media.safe_key)
+    : media.web_key;
   if (!key) return json({ error: "preview_processing" }, 409);
   const object = request.headers.has("range")
     ? await env.MEDIA.get(key, { range: request.headers })
@@ -1174,7 +1176,7 @@ async function serveMediaContent(request, env, url) {
   const headers = new Headers();
   object.writeHttpMetadata(headers);
   headers.set("etag", object.httpEtag);
-  headers.set("cache-control", ownsOriginal ? "private, no-store" : "private, max-age=300");
+  headers.set("cache-control", download ? "private, no-store" : "private, max-age=3600");
   headers.set("content-disposition", `${download ? "attachment" : "inline"}; filename="${sanitizeFilename(media.original_filename)}"`);
   return new Response(object.body, { status: request.headers.has("range") ? 206 : 200, headers });
 }

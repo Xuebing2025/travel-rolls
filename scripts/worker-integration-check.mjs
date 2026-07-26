@@ -90,10 +90,11 @@ await call(`/api/uploads/${upload.body.uploadId}/complete`, {
 });
 
 const mediaId = upload.body.mediaId;
+const webVariant = new Uint8Array([0xff, 0xd8, 0x77, 0x65, 0x62, 0xff, 0xd9]);
 await call(`/api/media/${mediaId}/variants/web`, {
   method: "PUT",
-  headers: { "content-type": "image/jpeg", "content-length": String(file.byteLength) },
-  body: file,
+  headers: { "content-type": "image/jpeg", "content-length": String(webVariant.byteLength) },
+  body: webVariant,
 });
 await call(`/api/media/${mediaId}/variants/thumb`, {
   method: "PUT",
@@ -139,6 +140,10 @@ const publicPreview = await fetch(`${base}/api/media/${mediaId}/content`, {
   headers: { origin: "http://127.0.0.1:4174" },
 });
 assert.equal(publicPreview.status, 200);
+assert.deepEqual(new Uint8Array(await publicPreview.arrayBuffer()), webVariant);
+const ownerPreview = await fetch(`${base}/api/media/${mediaId}/content`, { headers });
+assert.equal(ownerPreview.status, 200);
+assert.deepEqual(new Uint8Array(await ownerPreview.arrayBuffer()), webVariant);
 
 const like = await call(`/api/media/${mediaId}/like`, {
   method: "POST",
