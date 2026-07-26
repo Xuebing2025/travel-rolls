@@ -1,6 +1,6 @@
 # 旅卷 / TRAVEL ROLLS
 
-私人旅行影像档案网站。前端使用 GitHub Pages，业务 API 使用 Cloudflare Workers、D1、私有 R2 与 Resend。
+私人旅行影像档案网站（ https://travel.xbgzh.site/ ）。前端使用 GitHub Pages，业务 API 使用 Cloudflare Workers、D1、私有 R2 与 Resend。
 
 ## 当前已实现
 
