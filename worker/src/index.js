@@ -21,6 +21,7 @@ export default {
       else if (url.pathname === "/api/auth/logout" && request.method === "POST") response = await logout(request, env);
       else if (url.pathname === "/api/me" && request.method === "GET") response = await getMe(request, env);
       else if (url.pathname === "/api/places" && request.method === "GET") response = await listPlaces(request, env, url);
+      else if (url.pathname === "/api/places" && request.method === "POST") response = await ensurePlace(request, env);
       else if (url.pathname === "/api/map" && request.method === "GET") response = await mapSummary(request, env);
       else if (url.pathname === "/api/settings" && request.method === "GET") response = await getSettings(env);
       else if (url.pathname === "/api/settings" && request.method === "PATCH") response = await updateSettings(request, env);
@@ -246,6 +247,43 @@ async function listPlaces(request, env, url) {
            FROM places ORDER BY province_code,city_code LIMIT 500`
       ).all();
   return json({ places: rows.results });
+}
+
+async function ensurePlace(request, env) {
+  const user = await requireRole(request, env, ["editor", "admin"]);
+  if (user instanceof Response) return user;
+  const body = await readJson(request);
+  const provinceCode = cleanText(body.provinceCode, 6);
+  const cityCode = cleanText(body.cityCode, 6);
+  const officialName = cleanText(body.officialName, 80);
+  const displayName = cleanText(body.displayName || body.officialName, 80);
+  const centerLat = Number(body.centerLat);
+  const centerLng = Number(body.centerLng);
+  const provinceCodeValid = /^\d{6}$/.test(provinceCode);
+  const cityCodeValid = /^\d{6}$/.test(cityCode);
+  const expectedProvince = `${cityCode.slice(0, 2)}0000`;
+  if (!provinceCodeValid || !cityCodeValid || provinceCode !== expectedProvince
+    || !officialName || !displayName || !Number.isFinite(centerLat) || !Number.isFinite(centerLng)
+    || centerLat < -90 || centerLat > 90 || centerLng < -180 || centerLng > 180) {
+    return json({ error: "invalid_place" }, 400);
+  }
+  const id = `cn-${cityCode}`;
+  await env.DB.prepare(
+    `INSERT INTO places(
+       id,country_code,province_code,city_code,district_code,
+       official_name,display_name,level,center_lat,center_lng,map_data_version
+     ) VALUES(?,'CN',?,?,NULL,?,?,'city',?,?,'amap-js-2026')
+     ON CONFLICT(id) DO UPDATE SET
+       official_name=excluded.official_name,display_name=excluded.display_name,
+       center_lat=excluded.center_lat,center_lng=excluded.center_lng,
+       map_data_version=excluded.map_data_version`
+  ).bind(id, provinceCode, cityCode, officialName, displayName, centerLat, centerLng).run();
+  const place = await env.DB.prepare(
+    `SELECT id,country_code,province_code,city_code,official_name,display_name,level,center_lat,center_lng
+       FROM places WHERE id=?`
+  ).bind(id).first();
+  await writeAudit(env, user.id, "place.ensure", "place", id, { provinceCode, cityCode });
+  return json({ place }, 201);
 }
 
 async function mapSummary(request, env) {

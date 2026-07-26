@@ -20,6 +20,20 @@ async function call(path, options = {}, expected = 200) {
 const me = await call("/api/me");
 assert.equal(me.body.user.role, "admin");
 
+const ensuredPlace = await call("/api/places", {
+  method: "POST",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify({
+    provinceCode: "440000",
+    cityCode: "440100",
+    officialName: "广州市",
+    displayName: "广州",
+    centerLat: 23.1291,
+    centerLng: 113.2644,
+  }),
+}, 201);
+assert.equal(ensuredPlace.body.place.id, "cn-440100");
+
 const tagsBefore = await call("/api/tags");
 assert.ok(tagsBefore.body.tags.some((tag) => tag.name === "游记" && tag.is_system));
 
@@ -205,7 +219,7 @@ process.stdout.write(JSON.stringify({
   tripId,
   mediaId,
   tested: [
-    "session", "tags", "trip CRUD", "multipart R2 upload", "media metadata",
+    "session", "province-city place creation", "tags", "trip CRUD", "multipart R2 upload", "media metadata",
     "web, thumbnail and metadata-stripped full-size variants", "privacy-safe public preview and download", "visual smart sorting without identity recognition", "automatic trip dates", "Markdown media references", "likes and admin-only liker list", "private favorites collection",
     "trash restore", "Markdown version restore", "search", "map aggregation", "export", "invitations", "settings",
     "editor ownership guard", "admin-only guard", "trip trash and restore",
