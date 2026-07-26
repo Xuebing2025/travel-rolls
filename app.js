@@ -717,7 +717,8 @@ async function downloadMedia(mediaId, withWatermark, kind) {
     context.drawImage(bitmap, 0, 0);
     bitmap.close();
     const fontSize = Math.max(18, Math.round(Math.min(canvas.width, canvas.height) * 0.025));
-    context.font = `600 ${fontSize}px sans-serif`;
+    await document.fonts?.load?.(`${fontSize}px "LXGW WenKai GB Web"`).catch(() => {});
+    context.font = `600 ${fontSize}px "LXGW WenKai GB Web", "LXGW WenKai GB", "霞鹜文楷 GB", sans-serif`;
     context.textAlign = "right";
     context.textBaseline = "bottom";
     context.fillStyle = "rgba(0,0,0,.55)";

@@ -14,6 +14,13 @@ const { chromium } = require(
     route.fulfill({ contentType: "application/javascript", body: "window.TRAVEL_ROLLS_CONFIG={};" })
   );
   await page.goto("http://127.0.0.1:4174", { waitUntil: "networkidle" });
+  await page.evaluate(() => document.fonts.ready);
+  const typography = await page.evaluate(() => ({
+    wenkaiLoaded: document.fonts.check('16px "LXGW WenKai GB Web"'),
+    body: getComputedStyle(document.body).fontFamily,
+    wordmark: getComputedStyle(document.querySelector(".wordmark strong")).fontFamily,
+    homeTitle: getComputedStyle(document.querySelector(".home-copy h1")).fontFamily,
+  }));
   const initialHomeLegacyTrips = await page.locator('.home-grid [data-open-trip]').count();
   const initialLoadingRolls = await page.locator(".home-grid .loading-roll").count();
   await page.evaluate(() => {
@@ -111,6 +118,7 @@ const { chromium } = require(
     selectedCity,
     initialHomeLegacyTrips,
     initialLoadingRolls,
+    typography,
     errors,
   };
   process.stdout.write(JSON.stringify(report, null, 2));

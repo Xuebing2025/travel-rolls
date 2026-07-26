@@ -1,3 +1,14 @@
+@font-face {
+  font-family: "LXGW WenKai GB Web";
+  src:
+    local("LXGW WenKai GB"),
+    local("霞鹜文楷 GB"),
+    url("./assets/fonts/LXGWWenKaiGB-Regular.ttf?v=20260726c") format("truetype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
 :root {
   color-scheme: light;
   --paper: #f7f5f2;
@@ -14,9 +25,10 @@
   --blue: #cdd5d2;
   --black: #090b0a;
   --lime: #d9e45c;
-  --mono: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
-  --serif: "Songti SC", "STSong", "Noto Serif SC", serif;
-  --sans: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+  --wenkai: "LXGW WenKai GB Web", "LXGW WenKai GB", "霞鹜文楷 GB", sans-serif;
+  --mono: var(--wenkai);
+  --serif: var(--wenkai);
+  --sans: var(--wenkai);
 }
 
 * { box-sizing: border-box; }
