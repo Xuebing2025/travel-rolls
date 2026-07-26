@@ -2,17 +2,21 @@ name = "travel-rolls-api"
 main = "src/index.js"
 compatibility_date = "2026-07-01"
 
+[[routes]]
+pattern = "api.xbgzh.site"
+custom_domain = true
+
 [vars]
 APP_ORIGINS = "http://127.0.0.1:4174,https://xuebing2025.github.io,https://travel.xbgzh.site"
 EMAIL_FROM = "旅卷 <no-reply@xbgzh.site>"
 STORAGE_SOFT_LIMIT_BYTES = "8589934592"
 STORAGE_HARD_LIMIT_BYTES = "9663676416"
-BOOTSTRAP_ADMIN_EMAIL = ""
 
 [[d1_databases]]
 binding = "DB"
 database_name = "travel-rolls"
-database_id = "replace-after-creating-d1"
+database_id = "f4d36fd7-89b1-4151-831d-51eed1f3a1f8"
+migrations_dir = "migrations"
 
 [[r2_buckets]]
 binding = "MEDIA"
@@ -21,4 +25,4 @@ bucket_name = "travel-rolls-media"
 # Secrets set with `wrangler secret put`, never commit their values:
 # - OTP_PEPPER
 # - RESEND_API_KEY
-# - AMAP_SECURITY_CODE
+# - BOOTSTRAP_ADMIN_EMAIL

@@ -7,6 +7,7 @@
 - 杂志式首页与五条旅行横幅展开动效
 - 最近五次旅行、旅行详情与纯文字旅行占位
 - 高德地图 JS API 2.0 安全加载、全国地级市着色与省市钻取模块
+- `travel.xbgzh.site` 自定义域、完整 Cloudflare Worker、D1、私有 R2 与 Resend 发信基础设施
 - 可安全预览、编辑并在浏览器保存最近 5 个 Markdown 游记版本
 - 邀请制邮箱验证码登录/验证界面及 API 接线
 - 全站彩色标签与横幅字色本地设置
@@ -20,8 +21,7 @@
 
 ## 尚未接入
 
-- 完整应用 Cloudflare Worker、D1、R2 与 Resend 生产部署
-- 真实邀请、邮箱验证码联调、角色与内容权限
+- 邀请管理 API、除引导管理员外的受邀用户流程、完整角色与内容权限
 - 真实上传、EXIF解析、分片续传及媒体处理
 - 智能视觉编排、回收站、版本历史与操作日志
 
@@ -54,4 +54,4 @@ python -m http.server 4174
 
 ## 认证配置
 
-登录页不会在后端缺失时伪造成功状态。创建并部署 `worker/` 的 D1、R2 与 Resend 绑定后，将完整 Worker 地址写入 `config.js` 的 `apiBase`。正式环境建议让网站与 API 使用同一站点下的子域，以便安全 Cookie 稳定工作。
+生产前端通过 `config.js` 的 `apiBase` 连接 `https://api.xbgzh.site`。网站使用 `https://travel.xbgzh.site`，两者位于同一站点下，以便安全 Cookie 稳定工作。密钥仅保存在 Cloudflare Secrets，不得写入仓库。
