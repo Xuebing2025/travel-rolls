@@ -1,5 +1,6 @@
 (function () {
   const COLORS = ["#e4e2dc", "#f7c8ae", "#efa078", "#df7447", "#a9431e"];
+  const NATIONWIDE_VIEW = Object.freeze({ center: [104.0, 37.5], zoom: 4.45 });
   const CITY_VISITS = new Map([
     ["110000", { count: 1, tripId: "text-roll", name: "北京市", center: [116.4074, 39.9042] }],
     ["140100", { count: 1, tripId: "shanxi", name: "太原市", center: [112.5489, 37.8706] }],
@@ -237,8 +238,8 @@
 
   function createMap(AMap) {
     const map = new AMap.Map(container, {
-      center: [104.2, 35.7],
-      zoom: 4.1,
+      center: NATIONWIDE_VIEW.center,
+      zoom: NATIONWIDE_VIEW.zoom,
       viewMode: "2D",
       mapStyle: "amap://styles/whitesmoke",
       features: ["bg", "road", "point"],
@@ -360,7 +361,7 @@
     }
     if (state.initialized) {
       state.countryLayer.show();
-      state.map.setZoomAndCenter(4.1, [104.2, 35.7]);
+      state.map.setZoomAndCenter(NATIONWIDE_VIEW.zoom, NATIONWIDE_VIEW.center);
     }
     provinceSelect.value = "";
     nationwideButton.hidden = true;
