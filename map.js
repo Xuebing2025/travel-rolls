@@ -1,6 +1,7 @@
 (function () {
   const COLORS = ["#e4e2dc", "#f7c8ae", "#efa078", "#df7447", "#a9431e"];
   const NATIONWIDE_VIEW = Object.freeze({ center: [104.0, 37.5], zoom: 4.45 });
+  const GLOBAL_VIEW = Object.freeze({ center: [18, 24], zoom: 2.15 });
   const CITY_VISITS = new Map([
     ["110000", { count: 1, tripId: "text-roll", name: "北京市", center: [116.4074, 39.9042] }],
     ["140100", { count: 1, tripId: "shanxi", name: "太原市", center: [112.5489, 37.8706] }],
@@ -9,6 +10,7 @@
     ["330100", { count: 1, tripId: "hangzhou", name: "杭州市", center: [120.1551, 30.2741] }],
     ["810000", { count: 1, tripId: "hong-kong", name: "香港特别行政区", center: [114.1694, 22.3193] }],
   ]);
+  const GLOBAL_VISITS = new Map();
   const PROVINCES = [
     ["新疆", "650000"], ["西藏", "540000"], ["青海", "630000"], ["甘肃", "620000"],
     ["内蒙古", "150000"], ["黑龙江", "230000"], ["吉林", "220000"], ["辽宁", "210000"],
@@ -56,6 +58,7 @@
     map: null,
     countryLayer: null,
     provinceLayer: null,
+    globalMarkers: [],
     amapPromise: null,
   };
 
@@ -66,8 +69,10 @@
   const status = document.querySelector("#map-status");
   const source = document.querySelector("#map-source");
   const provinceSelect = document.querySelector("#province-select");
+  const globalButton = document.querySelector("#map-global");
   const nationwideButton = document.querySelector("#map-nationwide");
   const provinceTripButton = document.querySelector("#province-trip-button");
+  const sideKicker = document.querySelector("#map-side-kicker");
   let statusFadeTimer = null;
 
   function normalizeAdcode(value) {
@@ -117,11 +122,13 @@
     });
     if (!response.ok) throw new Error("map_data_unavailable");
     const body = await response.json();
-    if (!Array.isArray(body.cities)) return;
+    const chinaCities = Array.isArray(body.cities) ? body.cities : [];
+    const globalCities = Array.isArray(body.globalCities) ? body.globalCities : [];
     CITY_VISITS.clear();
+    GLOBAL_VISITS.clear();
     PROVINCE_TRIPS.clear();
     const provinceCounts = new Map();
-    body.cities.forEach((city) => {
+    chinaCities.forEach((city) => {
       const cityCode = normalizeAdcode(city.city_code);
       const provinceCode = normalizeAdcode(city.province_code || `${cityCode.slice(0, 2)}0000`);
       CITY_VISITS.set(cityCode, {
@@ -149,6 +156,16 @@
         label.textContent = `${count}次`;
         button.append(label);
       }
+    });
+    globalCities.forEach((city) => {
+      GLOBAL_VISITS.set(`${city.country_code}:${city.city_code}`, {
+        countryCode: city.country_code,
+        count: Number(city.visit_count || 0),
+        tripId: city.trip_id,
+        name: city.display_name || city.official_name,
+        center: [Number(city.center_lng), Number(city.center_lat)],
+        mediaCount: Number(city.media_count || 0),
+      });
     });
   }
 
@@ -252,7 +269,37 @@
     map.add(state.countryLayer);
     map.addControl(new AMap.Scale({ position: "LB" }));
     map.addControl(new AMap.ToolBar({ position: "RB", liteStyle: true }));
+    const reset = document.createElement("button");
+    reset.type = "button";
+    reset.className = "map-reset-control";
+    reset.textContent = "⌂";
+    reset.title = "回到地图初始位置";
+    reset.setAttribute("aria-label", "回到地图初始位置");
+    reset.addEventListener("click", () => showNationwide());
+    document.querySelector(".map-frame").append(reset);
     return map;
+  }
+
+  function renderGlobalMarkers() {
+    if (!state.initialized) return;
+    state.globalMarkers.forEach((marker) => state.map.remove(marker));
+    state.globalMarkers = [];
+    GLOBAL_VISITS.forEach((visit) => {
+      const content = document.createElement("button");
+      content.type = "button";
+      content.className = `global-visit-marker visit-${Math.min(4, Math.max(1, visit.count))}`;
+      content.dataset.openTrip = visit.tripId;
+      content.title = `${visit.name} · 到访${visit.count}次 · ${visit.mediaCount}张`;
+      content.setAttribute("aria-label", content.title);
+      const marker = new state.AMap.Marker({
+        position: visit.center,
+        anchor: "center",
+        content,
+        zIndex: 30,
+      });
+      state.map.add(marker);
+      state.globalMarkers.push(marker);
+    });
   }
 
   function waitForMapComplete(map) {
@@ -302,7 +349,35 @@
     }
   }
 
+  function renderGlobalCityList() {
+    const cityList = document.querySelector("#city-list");
+    cityList.replaceChildren();
+    [...GLOBAL_VISITS.values()]
+      .sort((left, right) => right.count - left.count || left.name.localeCompare(right.name))
+      .forEach((visit) => {
+        const button = document.createElement("button");
+        button.dataset.openTrip = visit.tripId;
+        const name = document.createElement("span");
+        name.textContent = visit.name;
+        const center = document.createElement("small");
+        const latitude = visit.center[1];
+        const longitude = visit.center[0];
+        center.textContent = `${Math.abs(latitude).toFixed(4)}° ${latitude < 0 ? "S" : "N"}, ${Math.abs(longitude).toFixed(4)}° ${longitude < 0 ? "W" : "E"}`;
+        const count = document.createElement("b");
+        count.textContent = `${visit.mediaCount}张 · 到访${visit.count}次`;
+        button.append(name, center, count);
+        cityList.append(button);
+      });
+    if (!GLOBAL_VISITS.size) {
+      const empty = document.createElement("p");
+      empty.className = "city-list-empty";
+      empty.textContent = "当前访问权限下暂无境外旅行城市。";
+      cityList.append(empty);
+    }
+  }
+
   function updateProvincePanel(name, adcode) {
+    sideKicker.textContent = "SELECTED PROVINCE";
     const displayName = PROVINCE_DISPLAY_NAMES[name] || `${name}省`;
     document.querySelector("#province-name").textContent = displayName;
     document.querySelector("#province-summary").textContent =
@@ -331,6 +406,7 @@
     if (!state.initialized) return;
     setStatus(`正在载入${name}地级市边界…`);
     try {
+      state.globalMarkers.forEach((marker) => marker.hide?.());
       if (state.countryLayer) state.countryLayer.hide();
       if (state.provinceLayer) state.map.remove(state.provinceLayer);
       state.provinceLayer = new state.AMap.DistrictLayer.Province({
@@ -361,6 +437,7 @@
     }
     if (state.initialized) {
       state.countryLayer.show();
+      state.globalMarkers.forEach((marker) => marker.show?.());
       state.map.setZoomAndCenter(NATIONWIDE_VIEW.zoom, NATIONWIDE_VIEW.center);
     }
     provinceSelect.value = "";
@@ -369,9 +446,35 @@
     provinceTripButton.removeAttribute("data-open-trip");
     provinceTripButton.replaceChildren();
     document.querySelector("#province-name").textContent = "中国";
+    sideKicker.textContent = "NATIONWIDE";
     document.querySelector("#province-summary").textContent = "选择一个省级行政区，查看地级市边界与旅行记录。";
     document.querySelector("#city-list").replaceChildren();
+    globalButton.removeAttribute("aria-pressed");
     if (announce !== false) setStatus("全国地级市访问图已载入", "ready");
+  }
+
+  function showGlobal(announce = true) {
+    if (state.initialized && state.provinceLayer) {
+      state.map.remove(state.provinceLayer);
+      state.provinceLayer = null;
+    }
+    if (state.initialized) {
+      state.countryLayer.hide();
+      state.globalMarkers.forEach((marker) => marker.show?.());
+      state.map.setZoomAndCenter(GLOBAL_VIEW.zoom, GLOBAL_VIEW.center);
+    }
+    provinceSelect.value = "";
+    nationwideButton.hidden = false;
+    globalButton.setAttribute("aria-pressed", "true");
+    provinceTripButton.hidden = true;
+    provinceTripButton.removeAttribute("data-open-trip");
+    provinceTripButton.replaceChildren();
+    document.querySelector("#province-name").textContent = "全球城市";
+    sideKicker.textContent = "GLOBAL CITIES";
+    document.querySelector("#province-summary").textContent =
+      "境外地点以城市中心标记着色；颜色深浅与到访次数一致，不伪造境外行政区边界。";
+    renderGlobalCityList();
+    if (announce !== false) setStatus("全球旅行城市已载入", "ready");
   }
 
   function bindControls() {
@@ -383,6 +486,8 @@
       const entry = PROVINCES.find(([, adcode]) => adcode === provinceSelect.value);
       if (entry) selectProvince(entry[0], entry[1]);
     });
+    window.TravelRollsSelectSearch?.refresh(provinceSelect);
+    globalButton.addEventListener("click", showGlobal);
     nationwideButton.addEventListener("click", showNationwide);
     document.querySelectorAll("[data-province]").forEach((button) => {
       button.addEventListener("click", () => {
@@ -405,6 +510,7 @@
       container.hidden = false;
       state.map = createMap(state.AMap);
       state.initialized = true;
+      renderGlobalMarkers();
       await waitForMapComplete(state.map);
       requestAnimationFrame(() => container.classList.add("ready"));
       dismissLoadingPoster();

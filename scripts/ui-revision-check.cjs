@@ -78,9 +78,11 @@ const { chromium } = require(
     getComputedStyle(element).gridTemplateColumns.split(" ").length
   );
   const gridCaptionsHidden = await page.locator("#trip-gallery figcaption").count() === 0;
-  const gridUsesOriginalRatio = await page.locator('[data-preview-media="media-a"]').evaluate(
-    (element) => getComputedStyle(element).aspectRatio === "auto"
-  );
+  const gridUsesFourThreeCrop = await page.locator('[data-preview-media="media-a"]').evaluate((element) => {
+    const style = getComputedStyle(element);
+    const ratio = element.getBoundingClientRect().width / element.getBoundingClientRect().height;
+    return Math.abs(ratio - 4 / 3) < 0.02 && style.objectFit === "cover" && style.objectPosition === "50% 50%";
+  });
   await page.click("#tag-editor-toggle");
   await page.click("#trip-date");
   const tagEditorClosedOutside = await page.locator("#tag-editor").evaluate((element) => element.hidden);
@@ -98,12 +100,12 @@ const { chromium } = require(
   await page.click('[data-gallery-layout="masonry"]');
   const masonryActionsHidden = await page.locator("#trip-gallery.masonry figcaption").count() === 0;
   await page.evaluate(() => {
+    window.__mockPlaces = new Map();
     apiRequest = async (path, options = {}) => {
       if (path === "/api/places" && options.method === "POST") {
         const city = JSON.parse(options.body);
         const isChina = city.countryCode === "CN";
-        return {
-          place: {
+        const place = {
             id: isChina ? `cn-${city.cityCode}` : `geo-${city.countryCode.toLowerCase()}-${city.geoNameId}`,
             country_code: city.countryCode,
             province_code: city.provinceCode,
@@ -113,6 +115,17 @@ const { chromium } = require(
             level: "city",
             center_lat: city.centerLat,
             center_lng: city.centerLng,
+        };
+        window.__mockPlaces.set(place.id, place);
+        return { place };
+      }
+      if (path === "/api/trips/shanxi" && options.method === "PATCH") {
+        const payload = JSON.parse(options.body);
+        return {
+          trip: {
+            id: "shanxi",
+            can_edit: true,
+            places: (payload.placeIds || []).map((id) => window.__mockPlaces.get(id)).filter(Boolean),
           },
         };
       }
@@ -153,6 +166,42 @@ const { chromium } = require(
     document.dispatchEvent(new CustomEvent("travelrolls:language-change"));
     return sorted;
   });
+  await page.fill('input[aria-label="搜索国家"]', "日本");
+  const countrySearchResults = await page.locator("#trip-form-country option").allTextContents();
+  await page.fill('input[aria-label="搜索国家"]', "");
+  await page.evaluate(() => {
+    authUser = { id: "admin-local", role: "admin", nickname: "管理员" };
+    activeTripId = "shanxi";
+    serverTripDetails.set("shanxi", { id: "shanxi", can_edit: true, places: [] });
+    route("trip", false);
+    renderTripCoordinates([]);
+    renderPublicGallery([]);
+  });
+  await page.click("#trip-add-place-tile");
+  await page.selectOption("#quick-place-province", "140000");
+  await page.waitForFunction(() => document.querySelector("#quick-place-city").options.length > 1);
+  await page.selectOption("#quick-place-city", "CN:140100");
+  await page.click('#quick-place-form button[type="submit"]');
+  await page.waitForFunction(() => !document.querySelector("#quick-place-dialog").open);
+  const quickAddedCity = await page.locator(".trip-body > aside dl").innerText();
+  await page.click(".gallery-add-tile");
+  const quickUploadDialogOpen = await page.locator("#quick-upload-dialog[open]").count() === 1;
+  const quickUploadPlaceOptions = await page.locator("#quick-upload-place option").allTextContents();
+  await page.click('[data-close-dialog="quick-upload-dialog"]');
+  await page.evaluate(() => {
+    adminState.trips = [
+      { id: "b", title: "北京", status: "published", visibility: "public", media_count: 2, updated_at: 1767398400000 },
+      { id: "a", title: "大同", status: "draft", visibility: "private", media_count: 9, updated_at: 1783036800000 },
+      { id: "c", title: "阿勒泰", status: "published", visibility: "link", media_count: 5, updated_at: 1735862400000 },
+    ];
+    route("admin", false);
+    setAdminTab("trips");
+    renderManagedTrips();
+  });
+  await page.click('[data-trip-sort="title"]');
+  const titleSortOrder = await page.locator("#admin-trip-list .table-row span:first-child").allTextContents();
+  await page.click('[data-trip-sort="updated_at"]');
+  const updatedSortOrder = await page.locator("#admin-trip-list .table-row span:first-child").allTextContents();
   const adminTripHeaderSize = await page.locator("#admin-trip-list > .table-head").evaluate(
     (element) => getComputedStyle(element).fontSize
   );
@@ -161,7 +210,7 @@ const { chromium } = require(
     toolbar: await page.locator(".gallery-toolbar").innerText(),
     gridColumns,
     gridCaptionsHidden,
-    gridUsesOriginalRatio,
+    gridUsesFourThreeCrop,
     previewOpen,
     previewActionLabels,
     moreActions,
@@ -177,6 +226,12 @@ const { chromium } = require(
     internationalCityCount,
     selectedCities,
     englishCountriesSorted,
+    countrySearchResults,
+    quickAddedCity,
+    quickUploadDialogOpen,
+    quickUploadPlaceOptions,
+    titleSortOrder,
+    updatedSortOrder,
     adminTripHeaderSize,
     initialHomeLegacyTrips,
     initialLoadingRolls,

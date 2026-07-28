@@ -8,7 +8,7 @@
     <title>TRAVEL ROLLS</title>
     <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml" />
     <link rel="preconnect" href="https://api.xbgzh.site" crossorigin />
-    <link rel="stylesheet" href="./styles.css?v=20260728a" />
+    <link rel="stylesheet" href="./styles.css?v=20260728b" />
   </head>
   <body>
     <div class="intro-motion-root" id="intro-motion-root" data-motion-provider="framer" hidden aria-hidden="true"></div>
@@ -85,6 +85,7 @@
             <div class="map-canvas">
               <div class="map-toolbar">
                 <select id="province-select" aria-label="选择一个地区"><option value="">选择一个地区</option></select>
+                <button id="map-global" type="button">全球城市</button>
                 <button id="map-nationwide" type="button" hidden>← 返回全国</button>
                 <span id="map-status" role="status">载入中</span>
               </div>
@@ -137,7 +138,7 @@
               <p class="map-source" id="map-source">正在检查地图服务配置…</p>
             </div>
             <aside class="map-side">
-              <p class="kicker">SELECTED PROVINCE</p>
+              <p class="kicker" id="map-side-kicker">SELECTED PROVINCE</p>
               <h3 id="province-name">山西省</h3>
               <p id="province-summary">一段穿过古建、石窟与雨后红墙的夏末行程。</p>
               <div class="city-list" id="city-list">
@@ -179,6 +180,7 @@
                 <div><dt>大同市</dt><dd>40.0768° N<br />113.3001° E</dd></div>
                 <div><dt>太原市</dt><dd>37.8706° N<br />112.5489° E</dd></div>
               </dl>
+              <button class="trip-add-place-tile" id="trip-add-place-tile" type="button" hidden aria-label="向本次旅行添加城市"><span>＋</span><small>添加城市</small></button>
               <div class="trip-actions" id="trip-access-note"></div>
             </aside>
             <div class="story">
@@ -348,7 +350,13 @@
                 <div class="version-list" id="trip-version-list"></div>
               </form>
               <div class="admin-table" id="admin-trip-list">
-                <div class="table-head"><span>旅行</span><span>状态</span><span>可见性</span><span>照片</span><span>更新</span></div>
+                <div class="table-head">
+                  <button type="button" data-trip-sort="title">旅行</button>
+                  <button type="button" data-trip-sort="status">状态</button>
+                  <button type="button" data-trip-sort="visibility">可见性</button>
+                  <button type="button" data-trip-sort="media_count">照片</button>
+                  <button type="button" data-trip-sort="updated_at" aria-sort="descending">更新 ↓</button>
+                </div>
                 <p class="admin-empty">正在读取旅行…</p>
               </div>
             </div>
@@ -421,6 +429,27 @@
   </main>
 
   <div class="media-action-menu" id="media-action-menu" hidden role="menu" aria-label="照片操作"></div>
+  <dialog class="quick-edit-dialog" id="quick-place-dialog">
+    <form id="quick-place-form">
+      <div class="form-heading"><div><p class="kicker">ADD DESTINATION</p><h3>向本次旅行添加城市</h3></div><button class="text-button" data-close-dialog="quick-place-dialog" type="button">关闭</button></div>
+      <div class="form-row place-picker-row">
+        <label><span>国家</span><select id="quick-place-country" aria-label="搜索并选择国家"></select></label>
+        <label id="quick-place-province-field"><span>省份</span><select id="quick-place-province"><option value="">选择省份</option></select></label>
+        <label><span>城市</span><select id="quick-place-city" disabled><option value="">请先选择省份</option></select></label>
+      </div>
+      <p class="form-status" id="quick-place-status" role="status"></p>
+      <div class="form-actions"><button class="solid-button" type="submit">添加城市</button></div>
+    </form>
+  </dialog>
+  <dialog class="quick-edit-dialog" id="quick-upload-dialog">
+    <form id="quick-upload-form">
+      <div class="form-heading"><div><p class="kicker">ADD FRAMES</p><h3>向本次旅行上传照片</h3></div><button class="text-button" data-close-dialog="quick-upload-dialog" type="button">关闭</button></div>
+      <label><span>所属城市</span><select id="quick-upload-place" required></select></label>
+      <label class="file-drop"><span>选择 JPG、PNG 或 MP4（可多选）</span><input id="quick-upload-files" type="file" accept=".jpg,.jpeg,.png,.mp4,image/jpeg,image/png,video/mp4" multiple required /></label>
+      <p class="form-status" id="quick-upload-status" role="status">选择文件后将解析拍摄时间并以并发分片上传。</p>
+      <div class="form-actions"><button class="solid-button" type="submit">开始上传</button></div>
+    </form>
+  </dialog>
   <dialog class="media-preview-dialog" id="media-preview-dialog" aria-label="照片放大预览">
     <button class="preview-close" id="media-preview-close" type="button" aria-label="关闭预览">×</button>
     <div id="media-preview-visual"></div>
@@ -442,10 +471,10 @@
       </footer>
     </div>
     <div id="toast" role="status" aria-live="polite"></div>
-    <script src="./config.js?v=20260728a"></script>
-    <script src="./city-data.js?v=20260728a"></script>
-    <script src="./map.js?v=20260728a"></script>
-    <script src="./motion-bridge.js?v=20260728a"></script>
-    <script src="./app.js?v=20260728a"></script>
+    <script src="./config.js?v=20260728b"></script>
+    <script src="./city-data.js?v=20260728b"></script>
+    <script src="./map.js?v=20260728b"></script>
+    <script src="./motion-bridge.js?v=20260728b"></script>
+    <script src="./app.js?v=20260728b"></script>
   </body>
 </html>
