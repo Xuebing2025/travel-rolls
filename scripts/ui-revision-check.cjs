@@ -166,9 +166,11 @@ const { chromium } = require(
     document.dispatchEvent(new CustomEvent("travelrolls:language-change"));
     return sorted;
   });
-  await page.fill('input[aria-label="搜索国家"]', "日本");
-  const countrySearchResults = await page.locator("#trip-form-country option").allTextContents();
-  await page.fill('input[aria-label="搜索国家"]', "");
+  const countryCombobox = page.locator("#trip-form-country").locator("..");
+  await countryCombobox.locator(".searchable-select-trigger").click();
+  await countryCombobox.locator('input[aria-label="搜索国家"]').fill("日本");
+  const countrySearchResults = await countryCombobox.locator(".searchable-select-option").allTextContents();
+  await countryCombobox.locator('input[aria-label="搜索国家"]').press("Escape");
   await page.evaluate(() => {
     authUser = { id: "admin-local", role: "admin", nickname: "管理员" };
     activeTripId = "shanxi";
@@ -184,6 +186,37 @@ const { chromium } = require(
   await page.click('#quick-place-form button[type="submit"]');
   await page.waitForFunction(() => !document.querySelector("#quick-place-dialog").open);
   const quickAddedCity = await page.locator(".trip-body > aside dl").innerText();
+  const quickAddSizing = await page.evaluate(() => {
+    const city = document.querySelector(".trip-body > aside dl > div")?.getBoundingClientRect();
+    const tile = document.querySelector("#trip-add-place-tile")?.getBoundingClientRect();
+    return {
+      cityHeight: Math.round(city?.height || 0),
+      tileHeight: Math.round(tile?.height || 0),
+      sameWidth: Math.abs((city?.width || 0) - (tile?.width || 0)) < 1,
+    };
+  });
+  await page.click("#trip-add-place-tile");
+  await page.waitForFunction(() => document.querySelector("#quick-place-dialog").open);
+  await page.evaluate(() => {
+    const select = document.querySelector("#quick-place-country");
+    const wrapper = select.closest(".searchable-select");
+    const panel = wrapper.querySelector(".searchable-select-panel");
+    if (panel.hidden) wrapper.querySelector(".searchable-select-trigger").click();
+  });
+  await page.waitForFunction(() => {
+    const select = document.querySelector("#quick-place-country");
+    return select.closest(".searchable-select")?.querySelector(".searchable-select-panel")?.hidden === false;
+  });
+  const searchLivesInsideDropdown = await page.locator(
+    "#quick-place-country + *, #quick-place-country"
+  ).evaluate(() => {
+    const select = document.querySelector("#quick-place-country");
+    const wrapper = select.closest(".searchable-select");
+    const panel = wrapper?.querySelector(".searchable-select-panel");
+    const input = panel?.querySelector('input[type="search"]');
+    return Boolean(wrapper && panel && input && !panel.hidden && wrapper.contains(input));
+  });
+  await page.click('[data-close-dialog="quick-place-dialog"]');
   await page.click(".gallery-add-tile");
   const quickUploadDialogOpen = await page.locator("#quick-upload-dialog[open]").count() === 1;
   const quickUploadPlaceOptions = await page.locator("#quick-upload-place option").allTextContents();
@@ -228,6 +261,8 @@ const { chromium } = require(
     englishCountriesSorted,
     countrySearchResults,
     quickAddedCity,
+    quickAddSizing,
+    searchLivesInsideDropdown,
     quickUploadDialogOpen,
     quickUploadPlaceOptions,
     titleSortOrder,
