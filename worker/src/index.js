@@ -300,7 +300,7 @@ async function ensurePlace(request, env) {
 async function mapSummary(request, env) {
   const user = await currentUser(request, env);
   const rows = await env.DB.prepare(
-    `SELECT p.city_code,p.province_code,p.display_name,p.official_name,p.center_lat,p.center_lng,
+    `SELECT p.country_code,p.city_code,p.province_code,p.display_name,p.official_name,p.center_lat,p.center_lng,
             COUNT(DISTINCT t.id) AS visit_count,
             COUNT(DISTINCT CASE WHEN m.status='ready' THEN m.id END) AS media_count,
             MIN(t.id) AS trip_id,
@@ -308,14 +308,16 @@ async function mapSummary(request, env) {
        FROM trips t
        JOIN trip_places tp ON tp.trip_id=t.id
        JOIN places p ON p.id=tp.place_id
-       LEFT JOIN media m ON m.trip_id=t.id AND m.place_id=p.id
+      LEFT JOIN media m ON m.trip_id=t.id AND m.place_id=p.id
       WHERE t.status='published'
-        AND p.country_code='CN'
         AND (t.visibility='public' OR (?1 IS NOT NULL AND (?2='admin' OR t.author_id=?1)))
       GROUP BY p.id
       ORDER BY p.province_code,p.city_code`
   ).bind(user?.id || null, user?.role || null).all();
-  return json({ cities: rows.results });
+  return json({
+    cities: rows.results.filter((city) => city.country_code === "CN"),
+    globalCities: rows.results.filter((city) => city.country_code !== "CN"),
+  });
 }
 
 async function siteStats(request, env) {

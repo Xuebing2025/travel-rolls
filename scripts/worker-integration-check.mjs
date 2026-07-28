@@ -201,6 +201,7 @@ assert.ok(search.body.results.some((entry) => entry.id === tripId));
 const map = await call("/api/map");
 assert.ok(map.body.cities.some((entry) => entry.city_code === "140100"));
 assert.ok(!map.body.cities.some((entry) => entry.city_code === "gn-1850147"));
+assert.ok(map.body.globalCities.some((entry) => entry.city_code === "gn-1850147" && entry.country_code === "JP"));
 const stats = await call("/api/stats");
 assert.ok(stats.body.stats.cities >= 2);
 assert.ok(stats.body.stats.images >= 1);

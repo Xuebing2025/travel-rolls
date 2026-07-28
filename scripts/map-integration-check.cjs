@@ -18,14 +18,28 @@ const amapStub = `
         this.layers = [];
         window.__travelRollsTestMap = this;
       }
-      add(item) { this.layers.push(item); }
-      remove(item) { this.layers = this.layers.filter((entry) => entry !== item); }
+      add(item) {
+        this.layers.push(item);
+        if (item.content) this.container.append(item.content);
+      }
+      remove(item) {
+        this.layers = this.layers.filter((entry) => entry !== item);
+        item.content?.remove();
+      }
       addControl() {}
       setZoomAndCenter(zoom, center) { this.zoom = zoom; this.center = center; }
       resize() {}
     }
+    class Marker extends BaseLayer {
+      constructor(options) {
+        super(options);
+        this.position = options.position;
+        this.content = options.content;
+      }
+    }
     window.AMap = {
       Map,
+      Marker,
       DistrictLayer: {
         Country: class extends BaseLayer {},
         Province: class extends BaseLayer {},
@@ -51,9 +65,30 @@ const amapStub = `
   await page.route(/\/config\.js(?:\?.*)?$/, (route) =>
     route.fulfill({
       contentType: "application/javascript",
-      body: 'window.TRAVEL_ROLLS_CONFIG={amapKey:"test-public-key",amapServiceHost:"https://api.example.test"};',
+      body: 'window.TRAVEL_ROLLS_CONFIG={amapKey:"test-public-key",amapServiceHost:"https://api.example.test",apiBase:"https://api.example.test"};',
     })
   );
+  await page.route("https://api.example.test/api/**", (route) => {
+    const path = new URL(route.request().url()).pathname;
+    const bodies = {
+      "/api/map": {
+        cities: [
+          { city_code: "140100", province_code: "140000", display_name: "太原", center_lng: 112.5489, center_lat: 37.8706, visit_count: 2, media_count: 18, trip_id: "shanxi" },
+        ],
+        globalCities: [
+          { country_code: "FR", city_code: "2988507", display_name: "巴黎", center_lng: 2.3522, center_lat: 48.8566, visit_count: 3, media_count: 24, trip_id: "paris" },
+        ],
+      },
+      "/api/trips": { trips: [] },
+      "/api/settings": { settings: {} },
+      "/api/stats": { trips: 0, cities: 0, images: 0 },
+      "/api/me": { user: null },
+    };
+    route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify(bodies[path] || {}),
+    });
+  });
   await page.route(/^https:\/\/webapi\.amap\.com\/maps\?/, (route) =>
     route.fulfill({ contentType: "application/javascript", body: amapStub })
   );
@@ -72,6 +107,21 @@ const amapStub = `
   }));
   await page.selectOption("#province-select", "140000");
   await page.waitForFunction(() => document.querySelector("#province-name")?.textContent === "山西省");
+  const selectedProvince = await page.locator("#province-name").textContent();
+  const selectedProvinceCityCount = await page.locator("#city-list button").count();
+  const selectedProvinceTripLinks = await page.locator('#city-list [data-open-trip="shanxi"]').count();
+  await page.click("#map-global");
+  const globalView = await page.evaluate(() => ({
+    center: window.__travelRollsTestMap.center,
+    zoom: window.__travelRollsTestMap.zoom,
+  }));
+  const globalCity = await page.locator("#city-list").innerText();
+  const globalMarkerCount = await page.locator(".global-visit-marker").count();
+  await page.click(".map-reset-control");
+  const resetView = await page.evaluate(() => ({
+    center: window.__travelRollsTestMap.center,
+    zoom: window.__travelRollsTestMap.zoom,
+  }));
 
   const report = {
     loadingStatusFaded,
@@ -79,9 +129,14 @@ const amapStub = `
     liveMapVisible: await page.locator("#amap-container:not([hidden])").count() === 1,
     fallbackHidden: await page.locator("#map-fallback[hidden]").count() === 1,
     loadingPosterHidden: await page.locator("#map-loading-poster[hidden]").count() === 1,
-    provinceName: await page.locator("#province-name").textContent(),
-    cityCount: await page.locator("#city-list button").count(),
-    visitedCityLinks: await page.locator('#city-list [data-open-trip="shanxi"]').count(),
+    selectedProvince,
+    selectedProvinceCityCount,
+    selectedProvinceTripLinks,
+    globalView,
+    globalCity,
+    globalMarkerCount,
+    resetView,
+    provinceSearchPresent: await page.locator('input[aria-label="搜索地区"]').count() === 1,
     errors,
   };
   process.stdout.write(JSON.stringify(report, null, 2));

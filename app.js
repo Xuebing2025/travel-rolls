@@ -61,9 +61,11 @@ let authUser = null;
 const serverTripDetails = new Map();
 const publicGalleryMedia = new Map();
 const provinceCityChoices = new Map();
+const quickPlaceChoices = new Map();
 let worldPlaceData = window.TRAVEL_ROLLS_WORLD_DATA || { countries: [], cities: {} };
 let worldPlaceDataPromise = null;
 let publicTripRecords = [];
+const adminTripSort = { key: "updated_at", direction: "desc" };
 const adminState = {
   loaded: false,
   loading: null,
@@ -550,6 +552,7 @@ function renderTripCoordinates(places) {
     row.append(name, center);
     list.append(row);
   });
+  document.querySelector("#trip-add-place-tile").hidden = !canEditTrip(activeTripId);
 }
 
 async function loadPublicGallery(tripId, sort = "manual") {
@@ -580,7 +583,6 @@ function renderPublicGallery(mediaItems) {
     empty.className = "admin-empty";
     empty.textContent = "本卷暂未公开照片。";
     gallery.append(empty);
-    return;
   }
   mediaItems.forEach((media) => {
     publicGalleryMedia.set(media.id, media);
@@ -595,6 +597,15 @@ function renderPublicGallery(mediaItems) {
     figure.append(visual);
     gallery.append(figure);
   });
+  if (canEditTrip(activeTripId)) {
+    const add = document.createElement("button");
+    add.type = "button";
+    add.className = "gallery-add-tile";
+    add.dataset.quickUpload = activeTripId;
+    add.textContent = "＋";
+    add.setAttribute("aria-label", "向本次旅行上传照片");
+    gallery.append(add);
+  }
 }
 
 function canEditTrip(tripId) {
@@ -874,6 +885,108 @@ function renderPlaceOptions(selectedIds = []) {
   initializeProvincePicker();
 }
 
+const searchableSelectState = new WeakMap();
+
+function snapshotSelect(select) {
+  return [...select.children].map((child) => {
+    if (child.tagName === "OPTGROUP") {
+      return {
+        label: child.label,
+        options: [...child.children].map((option) => ({
+          value: option.value,
+          text: option.textContent,
+          disabled: option.disabled,
+          title: option.title,
+        })),
+      };
+    }
+    return {
+      value: child.value,
+      text: child.textContent,
+      disabled: child.disabled,
+      title: child.title,
+    };
+  });
+}
+
+function restoreSearchableSelect(select, query = "") {
+  const state = searchableSelectState.get(select);
+  if (!state) return;
+  const selected = select.value;
+  const normalized = query.trim().toLocaleLowerCase();
+  const fragment = document.createDocumentFragment();
+  state.snapshot.forEach((entry) => {
+    if (entry.options) {
+      const matches = entry.options.filter((option) =>
+        !normalized || option.text.toLocaleLowerCase().includes(normalized)
+      );
+      if (!matches.length) return;
+      const group = document.createElement("optgroup");
+      group.label = entry.label;
+      matches.forEach((option) => {
+        const node = new Option(option.text, option.value);
+        node.disabled = option.disabled;
+        node.title = option.title;
+        group.append(node);
+      });
+      fragment.append(group);
+      return;
+    }
+    if (entry.value === "" || !normalized || entry.text.toLocaleLowerCase().includes(normalized)) {
+      const node = new Option(entry.text, entry.value);
+      node.disabled = entry.disabled;
+      node.title = entry.title;
+      fragment.append(node);
+    }
+  });
+  select.replaceChildren(fragment);
+  if ([...select.options].some((option) => option.value === selected)) select.value = selected;
+}
+
+function refreshSearchableSelect(select) {
+  const state = searchableSelectState.get(select);
+  if (!state) return;
+  state.snapshot = snapshotSelect(select);
+  state.input.value = "";
+}
+
+function enhanceSearchableSelect(select, placeholder) {
+  if (!select || searchableSelectState.has(select)) return;
+  const input = document.createElement("input");
+  input.type = "search";
+  input.className = "select-search-input";
+  input.placeholder = placeholder;
+  input.setAttribute("aria-label", placeholder);
+  select.before(input);
+  searchableSelectState.set(select, { input, snapshot: snapshotSelect(select) });
+  input.addEventListener("input", () => restoreSearchableSelect(select, input.value));
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      input.value = "";
+      restoreSearchableSelect(select);
+      select.focus();
+    }
+  });
+}
+
+[
+  ["#trip-form-country", "搜索国家"],
+  ["#trip-form-province", "搜索省份"],
+  ["#trip-form-city", "搜索城市"],
+  ["#quick-place-country", "搜索国家"],
+  ["#quick-place-province", "搜索省份"],
+  ["#quick-place-city", "搜索城市"],
+  ["#quick-upload-place", "搜索旅行城市"],
+  ["#media-place", "搜索旅行城市"],
+  ["#province-select", "搜索地区"],
+].forEach(([selector, placeholder]) => enhanceSearchableSelect(document.querySelector(selector), placeholder));
+
+window.TravelRollsSelectSearch = Object.freeze({
+  refresh(select) {
+    refreshSearchableSelect(select);
+  },
+});
+
 const continentNames = {
   zh: { AS: "亚洲", EU: "欧洲", AF: "非洲", NA: "北美洲", SA: "南美洲", OC: "大洋洲", AN: "南极洲" },
   en: { AS: "Asia", EU: "Europe", AF: "Africa", NA: "North America", SA: "South America", OC: "Oceania", AN: "Antarctica" },
@@ -892,7 +1005,7 @@ function loadWorldPlaceData() {
   if (worldPlaceDataPromise) return worldPlaceDataPromise;
   worldPlaceDataPromise = new Promise((resolve, reject) => {
     const script = document.createElement("script");
-    script.src = new URL("./world-data.js?v=20260728a", document.baseURI).href;
+    script.src = new URL("./world-data.js?v=20260728b", document.baseURI).href;
     script.async = true;
     script.addEventListener("load", () => {
       worldPlaceData = window.TRAVEL_ROLLS_WORLD_DATA || { countries: [], cities: {} };
@@ -931,6 +1044,7 @@ function initializeCountryPicker(force = false) {
   if (!worldPlaceData.countries.length) {
     select.replaceChildren(new Option(countryName("CN"), "CN"));
     select.value = "CN";
+    refreshSearchableSelect(select);
     loadWorldPlaceData().catch(() => {});
     return;
   }
@@ -955,6 +1069,7 @@ function initializeCountryPicker(force = false) {
     select.append(group);
   });
   select.value = [...select.options].some((option) => option.value === current) ? current : "CN";
+  refreshSearchableSelect(select);
 }
 
 function initializeProvincePicker() {
@@ -963,6 +1078,7 @@ function initializeProvincePicker() {
   (window.TravelRollsMap?.provinces || []).forEach((province) => {
     provinceSelect.add(new Option(province.name, province.adcode));
   });
+  refreshSearchableSelect(provinceSelect);
 }
 
 function populateInternationalCities(countryCode) {
@@ -1000,6 +1116,7 @@ function populateInternationalCities(countryCode) {
   });
   citySelect.append(fragment);
   citySelect.disabled = !cities.length;
+  refreshSearchableSelect(citySelect);
   document.querySelector("#trip-form-add-place").disabled = true;
   status.textContent = cities.length
     ? `已载入 ${countryName(countryCode)}的 ${cities.length} 个主要城市（GeoNames）。`
@@ -1018,11 +1135,84 @@ function updateCountryPlacePicker(countryCode) {
   if (countryCode === "CN") {
     citySelect.replaceChildren(new Option("请先选择省份", ""));
     citySelect.disabled = true;
+    refreshSearchableSelect(citySelect);
     document.querySelector("#trip-form-place-status").textContent =
       "中国城市使用站内地级市数据；境外主要城市来自 GeoNames。";
     return;
   }
   populateInternationalCities(countryCode);
+}
+
+function populateQuickInternationalCities(countryCode) {
+  const citySelect = document.querySelector("#quick-place-city");
+  const language = placePickerLanguage();
+  const collator = new Intl.Collator(language === "en" ? "en" : "zh-CN-u-co-pinyin");
+  const cities = [...(worldPlaceData.cities[countryCode] || [])].map(
+    ([geoNameId, name, asciiName, centerLat, centerLng, provinceCode, population]) => ({
+      countryCode,
+      geoNameId,
+      provinceCode,
+      cityCode: `gn-${geoNameId}`,
+      officialName: name,
+      displayName: language === "en" ? asciiName : name,
+      centerLat,
+      centerLng,
+      population,
+      source: "geonames",
+    })
+  );
+  cities.sort((left, right) =>
+    collator.compare(left.displayName, right.displayName) || right.population - left.population
+  );
+  quickPlaceChoices.clear();
+  citySelect.replaceChildren(new Option(cities.length ? "选择城市" : "该国家暂无城市数据", ""));
+  cities.forEach((city) => {
+    const key = `${countryCode}:${city.geoNameId}`;
+    quickPlaceChoices.set(key, city);
+    citySelect.add(new Option(city.officialName === city.displayName
+      ? city.displayName
+      : `${city.displayName} / ${city.officialName}`, key));
+  });
+  citySelect.disabled = !cities.length;
+  refreshSearchableSelect(citySelect);
+  setFormStatus("#quick-place-status", cities.length
+    ? `已载入 ${countryName(countryCode)}的 ${cities.length} 个主要城市。`
+    : "该国家暂无可用城市数据。");
+}
+
+function updateQuickCountryPicker(countryCode) {
+  const provinceField = document.querySelector("#quick-place-province-field");
+  const provinceSelect = document.querySelector("#quick-place-province");
+  const citySelect = document.querySelector("#quick-place-city");
+  provinceField.hidden = countryCode !== "CN";
+  provinceSelect.value = "";
+  quickPlaceChoices.clear();
+  if (countryCode === "CN") {
+    citySelect.replaceChildren(new Option("请先选择省份", ""));
+    citySelect.disabled = true;
+    refreshSearchableSelect(citySelect);
+    setFormStatus("#quick-place-status", "选择省份和城市后即可加入当前旅行。");
+    return;
+  }
+  populateQuickInternationalCities(countryCode);
+}
+
+async function initializeQuickPlacePicker() {
+  setFormStatus("#quick-place-status", "正在载入地点数据…");
+  await loadWorldPlaceData();
+  initializeCountryPicker(true);
+  const sourceCountry = document.querySelector("#trip-form-country");
+  const countrySelect = document.querySelector("#quick-place-country");
+  countrySelect.replaceChildren(...[...sourceCountry.children].map((node) => node.cloneNode(true)));
+  countrySelect.value = "CN";
+  refreshSearchableSelect(countrySelect);
+  const provinceSelect = document.querySelector("#quick-place-province");
+  provinceSelect.replaceChildren(new Option("选择省份", ""));
+  (window.TravelRollsMap?.provinces || []).forEach((province) => {
+    provinceSelect.add(new Option(province.name, province.adcode));
+  });
+  refreshSearchableSelect(provinceSelect);
+  updateQuickCountryPicker("CN");
 }
 
 function renderSelectedPlaces() {
@@ -1072,6 +1262,15 @@ function renderManagedTrips() {
   const list = document.querySelector("#admin-trip-list");
   const head = list.querySelector(".table-head");
   list.replaceChildren(head);
+  head.querySelectorAll("[data-trip-sort]").forEach((button) => {
+    const active = button.dataset.tripSort === adminTripSort.key;
+    button.removeAttribute("aria-sort");
+    button.textContent = button.textContent.replace(/\s[↑↓]$/, "");
+    if (active) {
+      button.setAttribute("aria-sort", adminTripSort.direction === "asc" ? "ascending" : "descending");
+      button.textContent += adminTripSort.direction === "asc" ? " ↑" : " ↓";
+    }
+  });
   if (!adminState.trips.length) {
     const empty = document.createElement("p");
     empty.className = "admin-empty";
@@ -1079,7 +1278,34 @@ function renderManagedTrips() {
     list.append(empty);
     return;
   }
-  adminState.trips.forEach((trip) => {
+  const direction = adminTripSort.direction === "asc" ? 1 : -1;
+  const sortedTrips = [...adminState.trips].sort((left, right) => {
+    const leftValue = left[adminTripSort.key] ?? "";
+    const rightValue = right[adminTripSort.key] ?? "";
+    if (adminTripSort.key === "media_count") {
+      return (Number(leftValue) - Number(rightValue)) * direction;
+    }
+    if (adminTripSort.key === "updated_at") {
+      const timestamp = (value) => {
+        if (typeof value === "number" || /^\d+$/u.test(String(value))) return Number(value) || 0;
+        return Date.parse(value) || 0;
+      };
+      return (timestamp(leftValue) - timestamp(rightValue)) * direction;
+    }
+    const sortOrders = {
+      status: { draft: 0, published: 1 },
+      visibility: { private: 0, link: 1, public: 2 },
+    };
+    if (sortOrders[adminTripSort.key]) {
+      return ((sortOrders[adminTripSort.key][leftValue] ?? 99) -
+        (sortOrders[adminTripSort.key][rightValue] ?? 99)) * direction;
+    }
+    return String(leftValue).localeCompare(String(rightValue), "zh-CN-u-co-pinyin", {
+      numeric: true,
+      sensitivity: "base",
+    }) * direction;
+  });
+  sortedTrips.forEach((trip) => {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "table-row";
@@ -1653,6 +1879,16 @@ document.querySelector("#media-preview-dialog").addEventListener("close", () => 
 });
 
 document.addEventListener("click", async (event) => {
+  const closeDialog = event.target.closest("[data-close-dialog]");
+  if (closeDialog) {
+    document.querySelector(`#${CSS.escape(closeDialog.dataset.closeDialog)}`)?.close();
+    return;
+  }
+  const quickUpload = event.target.closest("[data-quick-upload]");
+  if (quickUpload) {
+    openQuickUploadDialog();
+    return;
+  }
   if (!event.target.closest("#tag-editor") && !event.target.closest("#tag-editor-toggle")) {
     setTagEditorOpen(false);
   }
@@ -1714,6 +1950,18 @@ document.addEventListener("click", async (event) => {
   const tab = event.target.closest("[data-admin-tab]");
   if (tab) {
     setAdminTab(tab.dataset.adminTab);
+    return;
+  }
+  const tripSort = event.target.closest("[data-trip-sort]");
+  if (tripSort) {
+    const key = tripSort.dataset.tripSort;
+    if (adminTripSort.key === key) {
+      adminTripSort.direction = adminTripSort.direction === "asc" ? "desc" : "asc";
+    } else {
+      adminTripSort.key = key;
+      adminTripSort.direction = ["media_count", "updated_at"].includes(key) ? "desc" : "asc";
+    }
+    renderManagedTrips();
     return;
   }
   const editTrip = event.target.closest("[data-edit-trip]");
@@ -2227,29 +2475,54 @@ async function visualFingerprint(file) {
   }
 }
 
+async function runWithConcurrency(items, limit, worker) {
+  let cursor = 0;
+  const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (cursor < items.length) {
+      const index = cursor;
+      cursor += 1;
+      await worker(items[index], index);
+    }
+  });
+  await Promise.all(runners);
+}
+
+async function prepareMediaItem(file) {
+  const [capturedAt, gps, contentHash, fingerprint] = await Promise.all([
+    parseCaptureTime(file),
+    parseJpegGps(file),
+    hashFile(file),
+    visualFingerprint(file),
+  ]);
+  return {
+    id: crypto.randomUUID(),
+    file,
+    fingerprint: fileFingerprint(file),
+    capturedAt,
+    districtCode: await resolveGpsDistrict(gps),
+    contentHash,
+    visualFingerprint: fingerprint,
+    status: "ready",
+    progress: 0,
+    error: "",
+  };
+}
+
 async function prepareMediaFiles(files) {
   const allowed = new Set(["image/jpeg", "image/png", "video/mp4"]);
   const limits = { "image/jpeg": 100 * 1024 * 1024, "image/png": 100 * 1024 * 1024, "video/mp4": 500 * 1024 * 1024 };
   const accepted = [...files].filter((file) => allowed.has(file.type) && file.size > 0 && file.size <= limits[file.type]);
   const rejected = files.length - accepted.length;
   setFormStatus("#media-upload-status", `正在解析 ${accepted.length} 个文件…${rejected ? ` 已忽略 ${rejected} 个不支持或超限文件。` : ""}`);
-  for (const file of accepted) {
-    const gps = await parseJpegGps(file);
-    const item = {
-      id: crypto.randomUUID(),
-      file,
-      fingerprint: fileFingerprint(file),
-      capturedAt: await parseCaptureTime(file),
-      districtCode: await resolveGpsDistrict(gps),
-      contentHash: await hashFile(file),
-      visualFingerprint: await visualFingerprint(file),
-      status: "ready",
-      progress: 0,
-      error: "",
-    };
-    adminState.uploadQueue.push(item);
-    renderUploadQueue();
-  }
+  const prepared = new Array(accepted.length);
+  let parsed = 0;
+  await runWithConcurrency(accepted, 2, async (file, index) => {
+    prepared[index] = await prepareMediaItem(file);
+    parsed += 1;
+    setFormStatus("#media-upload-status", `正在解析文件… ${parsed}/${accepted.length}`);
+  });
+  adminState.uploadQueue.push(...prepared);
+  renderUploadQueue();
   setFormStatus(
     "#media-upload-status",
     `${adminState.uploadQueue.length} 个文件待确认；PNG/视频或无 EXIF 时间的文件会进入“待完善”。`,
@@ -2323,8 +2596,7 @@ async function uploadPartWithRetry(uploadId, partNumber, blob) {
   throw lastError;
 }
 
-async function createImageVariant(file, maxEdge, quality) {
-  const bitmap = await createImageBitmap(file);
+function imageVariantFromBitmap(bitmap, maxEdge, quality) {
   const scale = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height));
   const canvas = document.createElement("canvas");
   canvas.width = Math.max(1, Math.round(bitmap.width * scale));
@@ -2333,10 +2605,23 @@ async function createImageVariant(file, maxEdge, quality) {
   context.fillStyle = "#f5eee3";
   context.fillRect(0, 0, canvas.width, canvas.height);
   context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  bitmap.close();
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("variant_failed")), "image/jpeg", quality);
   });
+}
+
+async function createImageVariants(file, onProgress = () => {}) {
+  const bitmap = await createImageBitmap(file);
+  try {
+    const safe = await imageVariantFromBitmap(bitmap, Infinity, 0.95);
+    onProgress(87);
+    const web = await imageVariantFromBitmap(bitmap, 2400, 0.88);
+    onProgress(90);
+    const thumb = await imageVariantFromBitmap(bitmap, 520, 0.78);
+    return { safe, web, thumb };
+  } finally {
+    bitmap.close();
+  }
 }
 
 async function uploadVariant(mediaId, variant, blob) {
@@ -2378,18 +2663,22 @@ async function uploadQueueItem(item, tripId, placeId) {
   if (!record.completedMediaId) {
     const partSize = record.partSize;
     const partCount = Math.ceil(item.file.size / partSize);
-    for (let partNumber = 1; partNumber <= partCount; partNumber += 1) {
-      if (!record.parts.some((part) => part.partNumber === partNumber)) {
-        const start = (partNumber - 1) * partSize;
-        const result = await uploadPartWithRetry(record.uploadId, partNumber, item.file.slice(start, Math.min(item.file.size, start + partSize)));
-        record.parts.push({ partNumber: result.partNumber, etag: result.etag });
-        record.parts.sort((a, b) => a.partNumber - b.partNumber);
-        resume[item.fingerprint] = record;
-        writeUploadResume(resume);
-      }
+    const missingParts = Array.from({ length: partCount }, (_, index) => index + 1)
+      .filter((partNumber) => !record.parts.some((part) => part.partNumber === partNumber));
+    await runWithConcurrency(missingParts, 2, async (partNumber) => {
+      const start = (partNumber - 1) * partSize;
+      const result = await uploadPartWithRetry(
+        record.uploadId,
+        partNumber,
+        item.file.slice(start, Math.min(item.file.size, start + partSize))
+      );
+      record.parts.push({ partNumber: result.partNumber, etag: result.etag });
+      record.parts.sort((a, b) => a.partNumber - b.partNumber);
+      resume[item.fingerprint] = record;
+      writeUploadResume(resume);
       item.progress = Math.round(record.parts.length / partCount * 82);
       renderUploadQueue();
-    }
+    });
     const completed = await uploadJson(`/api/uploads/${encodeURIComponent(record.uploadId)}/complete`, {
       method: "POST",
       body: JSON.stringify({ parts: record.parts }),
@@ -2399,18 +2688,19 @@ async function uploadQueueItem(item, tripId, placeId) {
     writeUploadResume(resume);
   }
   if (item.file.type === "image/jpeg" || item.file.type === "image/png") {
-    item.progress = 86;
+    item.progress = 84;
     renderUploadQueue();
-    const safe = await createImageVariant(item.file, Infinity, 0.95);
-    await uploadVariant(record.completedMediaId, "safe", safe);
-    item.progress = 91;
+    const { safe, web, thumb } = await createImageVariants(item.file, (progress) => {
+      item.progress = progress;
+      renderUploadQueue();
+    });
+    await Promise.all([
+      uploadVariant(record.completedMediaId, "safe", safe),
+      uploadVariant(record.completedMediaId, "web", web),
+      uploadVariant(record.completedMediaId, "thumb", thumb),
+    ]);
+    item.progress = 98;
     renderUploadQueue();
-    const web = await createImageVariant(item.file, 2400, 0.88);
-    await uploadVariant(record.completedMediaId, "web", web);
-    item.progress = 96;
-    renderUploadQueue();
-    const thumb = await createImageVariant(item.file, 520, 0.78);
-    await uploadVariant(record.completedMediaId, "thumb", thumb);
   }
   delete resume[item.fingerprint];
   writeUploadResume(resume);
@@ -2436,8 +2726,74 @@ async function loadMediaTrip(id) {
     option.textContent = place.display_name || place.official_name;
     placeSelect.append(option);
   });
+  refreshSearchableSelect(placeSelect);
   await reloadMediaLibrary();
 }
+
+function openQuickUploadDialog() {
+  const detail = serverTripDetails.get(activeTripId);
+  if (!detail?.can_edit) {
+    showToast("当前账号不能向这次旅行上传照片");
+    return;
+  }
+  const placeSelect = document.querySelector("#quick-upload-place");
+  placeSelect.replaceChildren();
+  (detail.places || []).forEach((place) => {
+    placeSelect.add(new Option(place.display_name || place.official_name, place.id));
+  });
+  refreshSearchableSelect(placeSelect);
+  document.querySelector("#quick-upload-files").value = "";
+  setFormStatus("#quick-upload-status", detail.places?.length
+    ? "选择文件后将解析拍摄时间并以并发分片上传。"
+    : "请先使用左侧“添加城市”入口为旅行加入城市。", detail.places?.length ? "" : "error");
+  document.querySelector("#quick-upload-form button[type='submit']").disabled = !detail.places?.length;
+  document.querySelector("#quick-upload-dialog").showModal();
+}
+
+document.querySelector("#quick-upload-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const detail = serverTripDetails.get(activeTripId);
+  const placeId = document.querySelector("#quick-upload-place").value;
+  const files = document.querySelector("#quick-upload-files").files;
+  if (!detail?.can_edit || !placeId || !files.length) {
+    setFormStatus("#quick-upload-status", "请选择城市和需要上传的文件。", "error");
+    return;
+  }
+  const submit = event.submitter;
+  submit.disabled = true;
+  adminState.uploadQueue = [];
+  setFormStatus("#quick-upload-status", `正在解析 ${files.length} 个文件…`);
+  try {
+    await prepareMediaFiles(files);
+    let completed = 0;
+    let failed = 0;
+    await runWithConcurrency(adminState.uploadQueue, 2, async (item) => {
+      item.status = "uploading";
+      try {
+        await uploadQueueItem(item, activeTripId, placeId);
+        completed += 1;
+      } catch (error) {
+        item.status = "failed";
+        item.error = apiErrorMessage(error);
+        failed += 1;
+      }
+      setFormStatus(
+        "#quick-upload-status",
+        `上传进度：完成 ${completed}，失败 ${failed}，共 ${adminState.uploadQueue.length} 个。`,
+        failed ? "error" : "ready"
+      );
+    });
+    await loadPublicGallery(activeTripId, document.querySelector("[data-gallery-sort].active")?.dataset.gallerySort || "manual");
+    if (!failed) {
+      document.querySelector("#quick-upload-dialog").close();
+      showToast(`已上传 ${completed} 个文件`);
+    }
+  } catch (error) {
+    setFormStatus("#quick-upload-status", apiErrorMessage(error), "error");
+  } finally {
+    submit.disabled = false;
+  }
+});
 
 async function reloadMediaLibrary() {
   const id = adminState.activeMediaTripId;
@@ -2583,6 +2939,7 @@ document.querySelector("#trip-form-province").addEventListener("change", async (
   const status = document.querySelector("#trip-form-place-status");
   citySelect.replaceChildren(new Option(event.target.value ? "正在读取城市…" : "请先选择省份", ""));
   citySelect.disabled = true;
+  refreshSearchableSelect(citySelect);
   addButton.disabled = true;
   provinceCityChoices.clear();
   if (document.querySelector("#trip-form-country").value !== "CN") return;
@@ -2597,10 +2954,12 @@ document.querySelector("#trip-form-province").addEventListener("change", async (
       citySelect.add(new Option(`${city.displayName} · ${city.cityCode}`, key));
     });
     citySelect.disabled = !cities.length;
+    refreshSearchableSelect(citySelect);
     status.textContent = cities.length ? `已载入 ${cities.length} 个城市或地区。` : "该省份暂无可用城市数据。";
   } catch (error) {
     console.error("province_city_load_failed", error);
     citySelect.replaceChildren(new Option("城市读取失败", ""));
+    refreshSearchableSelect(citySelect);
     status.textContent = "站内城市数据不可用，请刷新页面后重试。";
   }
 });
@@ -2636,6 +2995,84 @@ document.querySelector("#trip-form-add-place").addEventListener("click", async (
     status.textContent = apiErrorMessage(error);
   } finally {
     addButton.disabled = !document.querySelector("#trip-form-city").value;
+  }
+});
+
+document.querySelector("#trip-add-place-tile").addEventListener("click", async () => {
+  const dialog = document.querySelector("#quick-place-dialog");
+  dialog.showModal();
+  try {
+    await initializeQuickPlacePicker();
+    document.querySelector("#quick-place-country").focus();
+  } catch (error) {
+    setFormStatus("#quick-place-status", "境外地点数据载入失败，请关闭后重试。", "error");
+  }
+});
+
+document.querySelector("#quick-place-country").addEventListener("change", (event) => {
+  updateQuickCountryPicker(event.target.value);
+});
+
+document.querySelector("#quick-place-province").addEventListener("change", async (event) => {
+  const citySelect = document.querySelector("#quick-place-city");
+  quickPlaceChoices.clear();
+  citySelect.replaceChildren(new Option(event.target.value ? "正在读取城市…" : "请先选择省份", ""));
+  citySelect.disabled = true;
+  refreshSearchableSelect(citySelect);
+  if (!event.target.value) return;
+  setFormStatus("#quick-place-status", "正在读取站内城市数据…");
+  try {
+    const cities = await window.TravelRollsMap.listProvinceCities(event.target.value);
+    citySelect.replaceChildren(new Option("选择城市", ""));
+    cities.forEach((city) => {
+      const key = `CN:${city.cityCode}`;
+      quickPlaceChoices.set(key, { ...city, countryCode: "CN" });
+      citySelect.add(new Option(`${city.displayName} · ${city.cityCode}`, key));
+    });
+    citySelect.disabled = !cities.length;
+    refreshSearchableSelect(citySelect);
+    setFormStatus("#quick-place-status", `已载入 ${cities.length} 个城市或地区。`, "ready");
+  } catch (error) {
+    citySelect.replaceChildren(new Option("城市读取失败", ""));
+    refreshSearchableSelect(citySelect);
+    setFormStatus("#quick-place-status", "城市数据不可用，请稍后重试。", "error");
+  }
+});
+
+document.querySelector("#quick-place-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const city = quickPlaceChoices.get(document.querySelector("#quick-place-city").value);
+  const detail = serverTripDetails.get(activeTripId);
+  if (!city || !detail?.can_edit) {
+    setFormStatus("#quick-place-status", "请选择城市，或确认当前账号具有编辑权限。", "error");
+    return;
+  }
+  const submit = event.submitter;
+  submit.disabled = true;
+  setFormStatus("#quick-place-status", `正在添加${city.displayName || city.officialName}…`);
+  try {
+    const placeBody = await apiRequest("/api/places", {
+      method: "POST",
+      body: JSON.stringify(city),
+    });
+    const place = placeBody.place;
+    const existingPlaces = detail.places || [];
+    if (existingPlaces.some((entry) => entry.id === place.id)) {
+      setFormStatus("#quick-place-status", "该城市已在本次旅行中。", "error");
+      return;
+    }
+    const body = await apiRequest(`/api/trips/${encodeURIComponent(activeTripId)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ placeIds: [...existingPlaces.map((entry) => entry.id), place.id] }),
+    });
+    serverTripDetails.set(activeTripId, body.trip);
+    renderTripCoordinates(body.trip.places || []);
+    document.querySelector("#quick-place-dialog").close();
+    showToast(`已添加${place.display_name || place.official_name}`);
+  } catch (error) {
+    setFormStatus("#quick-place-status", apiErrorMessage(error), "error");
+  } finally {
+    submit.disabled = false;
   }
 });
 
@@ -2902,7 +3339,8 @@ document.querySelector("#media-upload-form").addEventListener("submit", async (e
   const submit = event.submitter;
   submit.disabled = true;
   let completed = 0;
-  for (const item of adminState.uploadQueue.filter((entry) => entry.status !== "complete")) {
+  const pendingItems = adminState.uploadQueue.filter((entry) => entry.status !== "complete");
+  await runWithConcurrency(pendingItems, 2, async (item) => {
     item.status = "uploading";
     item.error = "";
     renderUploadQueue();
@@ -2914,7 +3352,7 @@ document.querySelector("#media-upload-form").addEventListener("submit", async (e
       item.error = apiErrorMessage(error);
       renderUploadQueue();
     }
-  }
+  });
   submit.disabled = false;
   setFormStatus(
     "#media-upload-status",
