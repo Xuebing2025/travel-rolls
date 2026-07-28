@@ -886,6 +886,7 @@ function renderPlaceOptions(selectedIds = []) {
 }
 
 const searchableSelectState = new WeakMap();
+const searchableSelectStates = new Set();
 
 function snapshotSelect(select) {
   return [...select.children].map((child) => {
@@ -909,38 +910,90 @@ function snapshotSelect(select) {
   });
 }
 
-function restoreSearchableSelect(select, query = "") {
+function updateSearchableSelectTrigger(select) {
   const state = searchableSelectState.get(select);
   if (!state) return;
-  const selected = select.value;
+  const selected = [...select.options].find((option) => option.value === select.value);
+  state.triggerText.textContent = selected?.textContent || "请选择";
+  state.trigger.disabled = select.disabled;
+  state.trigger.classList.toggle("placeholder", !select.value);
+}
+
+function renderSearchableSelectOptions(select, query = "") {
+  const state = searchableSelectState.get(select);
+  if (!state) return;
   const normalized = query.trim().toLocaleLowerCase();
   const fragment = document.createDocumentFragment();
+  let matchCount = 0;
+  const appendOption = (option) => {
+    if (normalized && !option.text.toLocaleLowerCase().includes(normalized)) return;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "searchable-select-option";
+    button.dataset.value = option.value;
+    button.disabled = option.disabled;
+    button.setAttribute("role", "option");
+    button.setAttribute("aria-selected", String(option.value === select.value));
+    const label = document.createElement("span");
+    label.textContent = option.text;
+    button.append(label);
+    if (option.value === select.value) {
+      const check = document.createElement("b");
+      check.textContent = "✓";
+      check.setAttribute("aria-hidden", "true");
+      button.append(check);
+    }
+    button.addEventListener("click", () => {
+      select.value = option.value;
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+      closeSearchableSelect(select);
+    });
+    fragment.append(button);
+    matchCount += 1;
+  };
   state.snapshot.forEach((entry) => {
     if (entry.options) {
       const matches = entry.options.filter((option) =>
         !normalized || option.text.toLocaleLowerCase().includes(normalized)
       );
       if (!matches.length) return;
-      const group = document.createElement("optgroup");
-      group.label = entry.label;
-      matches.forEach((option) => {
-        const node = new Option(option.text, option.value);
-        node.disabled = option.disabled;
-        node.title = option.title;
-        group.append(node);
-      });
+      const group = document.createElement("p");
+      group.className = "searchable-select-group";
+      group.textContent = entry.label;
       fragment.append(group);
+      matches.forEach(appendOption);
       return;
     }
-    if (entry.value === "" || !normalized || entry.text.toLocaleLowerCase().includes(normalized)) {
-      const node = new Option(entry.text, entry.value);
-      node.disabled = entry.disabled;
-      node.title = entry.title;
-      fragment.append(node);
-    }
+    appendOption(entry);
   });
-  select.replaceChildren(fragment);
-  if ([...select.options].some((option) => option.value === selected)) select.value = selected;
+  if (!matchCount) {
+    const empty = document.createElement("p");
+    empty.className = "searchable-select-empty";
+    empty.textContent = "没有匹配选项";
+    fragment.append(empty);
+  }
+  state.list.replaceChildren(fragment);
+}
+
+function closeSearchableSelect(select) {
+  const state = searchableSelectState.get(select);
+  if (!state) return;
+  state.panel.hidden = true;
+  state.trigger.setAttribute("aria-expanded", "false");
+  state.input.value = "";
+  renderSearchableSelectOptions(select);
+}
+
+function openSearchableSelect(select) {
+  const state = searchableSelectState.get(select);
+  if (!state || select.disabled) return;
+  searchableSelectStates.forEach((other) => {
+    if (other.select !== select) closeSearchableSelect(other.select);
+  });
+  state.panel.hidden = false;
+  state.trigger.setAttribute("aria-expanded", "true");
+  renderSearchableSelectOptions(select);
+  requestAnimationFrame(() => state.input.focus());
 }
 
 function refreshSearchableSelect(select) {
@@ -948,25 +1001,72 @@ function refreshSearchableSelect(select) {
   if (!state) return;
   state.snapshot = snapshotSelect(select);
   state.input.value = "";
+  updateSearchableSelectTrigger(select);
+  renderSearchableSelectOptions(select);
 }
 
 function enhanceSearchableSelect(select, placeholder) {
   if (!select || searchableSelectState.has(select)) return;
+  const wrapper = document.createElement("div");
+  wrapper.className = "searchable-select";
+  const trigger = document.createElement("button");
+  trigger.type = "button";
+  trigger.className = "searchable-select-trigger";
+  trigger.setAttribute("aria-haspopup", "listbox");
+  trigger.setAttribute("aria-expanded", "false");
+  const triggerText = document.createElement("span");
+  const chevron = document.createElement("b");
+  chevron.textContent = "⌄";
+  chevron.setAttribute("aria-hidden", "true");
+  trigger.append(triggerText, chevron);
+  const panel = document.createElement("div");
+  panel.className = "searchable-select-panel";
+  panel.hidden = true;
   const input = document.createElement("input");
   input.type = "search";
   input.className = "select-search-input";
   input.placeholder = placeholder;
   input.setAttribute("aria-label", placeholder);
-  select.before(input);
-  searchableSelectState.set(select, { input, snapshot: snapshotSelect(select) });
-  input.addEventListener("input", () => restoreSearchableSelect(select, input.value));
-  input.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") {
-      input.value = "";
-      restoreSearchableSelect(select);
-      select.focus();
+  const list = document.createElement("div");
+  list.className = "searchable-select-list";
+  list.setAttribute("role", "listbox");
+  panel.append(input, list);
+  select.before(wrapper);
+  wrapper.append(trigger, panel, select);
+  select.classList.add("searchable-native-select");
+  const state = { select, wrapper, trigger, triggerText, panel, input, list, snapshot: snapshotSelect(select) };
+  searchableSelectState.set(select, state);
+  searchableSelectStates.add(state);
+  trigger.addEventListener("click", () => {
+    if (panel.hidden) openSearchableSelect(select);
+    else closeSearchableSelect(select);
+  });
+  trigger.addEventListener("keydown", (event) => {
+    if (["ArrowDown", "Enter", " "].includes(event.key) && panel.hidden) {
+      event.preventDefault();
+      openSearchableSelect(select);
     }
   });
+  input.addEventListener("input", () => renderSearchableSelectOptions(select, input.value));
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      closeSearchableSelect(select);
+      trigger.focus();
+    }
+    if (event.key === "Enter") {
+      const first = list.querySelector(".searchable-select-option:not(:disabled)");
+      if (first) {
+        event.preventDefault();
+        first.click();
+      }
+    }
+  });
+  select.addEventListener("change", () => {
+    updateSearchableSelectTrigger(select);
+    renderSearchableSelectOptions(select, input.value);
+  });
+  updateSearchableSelectTrigger(select);
+  renderSearchableSelectOptions(select);
 }
 
 [
@@ -985,6 +1085,15 @@ window.TravelRollsSelectSearch = Object.freeze({
   refresh(select) {
     refreshSearchableSelect(select);
   },
+  focus(select) {
+    openSearchableSelect(select);
+  },
+});
+
+document.addEventListener("click", (event) => {
+  searchableSelectStates.forEach((state) => {
+    if (!state.wrapper.contains(event.target)) closeSearchableSelect(state.select);
+  });
 });
 
 const continentNames = {
@@ -3003,7 +3112,7 @@ document.querySelector("#trip-add-place-tile").addEventListener("click", async (
   dialog.showModal();
   try {
     await initializeQuickPlacePicker();
-    document.querySelector("#quick-place-country").focus();
+    window.TravelRollsSelectSearch.focus(document.querySelector("#quick-place-country"));
   } catch (error) {
     setFormStatus("#quick-place-status", "境外地点数据载入失败，请关闭后重试。", "error");
   }
