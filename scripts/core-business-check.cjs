@@ -21,12 +21,15 @@ function response(route, body, status = 200) {
   page.on("console", (message) => {
     if (message.type() === "error") errors.push(`console: ${message.text()}`);
   });
-  page.on("pageerror", (error) => errors.push(`page: ${error.message}`));
+  page.on("pageerror", (error) => errors.push(`page: ${error.stack || error.message}`));
   page.on("response", (result) => {
     if (result.status() >= 400) errors.push(`http ${result.status()}: ${result.url()}`);
   });
+  page.on("requestfailed", (request) => {
+    errors.push(`request: ${request.failure()?.errorText || "failed"} ${request.url()}`);
+  });
 
-  await page.route("**/config.js", (route) => route.fulfill({
+  await page.route(/\/config\.js(?:\?.*)?$/, (route) => route.fulfill({
     contentType: "application/javascript",
     body: 'window.TRAVEL_ROLLS_CONFIG={amapKey:"",amapServiceHost:"",apiBase:"http://127.0.0.1:4174/mock"};',
   }));
@@ -35,11 +38,16 @@ function response(route, body, status = 200) {
     const url = new URL(request.url());
     const path = url.pathname.replace(/^\/mock/, "");
     if (path === "/api/me") return response(route, { user: { id: "admin-1", email: "admin@example.com", nickname: "卷主", role: "admin" } });
-    if (path === "/api/places") return response(route, { places: [
+    if (path === "/api/places" && request.method() === "GET") return response(route, { places: [
       { id: "cn-140100", display_name: "太原", official_name: "太原市", city_code: "140100" },
       { id: "cn-140200", display_name: "大同", official_name: "大同市", city_code: "140200" },
     ] });
+    if (path === "/api/places" && request.method() === "POST") {
+      const input = request.postDataJSON();
+      return response(route, { place: { id: `cn-${input.cityCode}`, ...input } }, 201);
+    }
     if (path === "/api/settings" && request.method() === "GET") return response(route, { settings: { subtitle: "以照片记录走过的经纬" } });
+    if (path === "/api/stats") return response(route, { stats: { trips: 0, cities: 0, images: 0 } });
     if (path === "/api/trash") return response(route, { trips: [], media: [] });
     if (path === "/api/tags" && request.method() === "GET") return response(route, { tags: [
       { id: "tag-1", name: "古建", color: "#d66f3e", is_system: 0, trip_count: 1, media_count: 0 },
@@ -82,12 +90,16 @@ function response(route, body, status = 200) {
     return response(route, { error: `unhandled:${request.method()}:${path}` }, 404);
   });
 
-  await page.goto("http://127.0.0.1:4174/#admin", { waitUntil: "networkidle" });
-  await page.waitForSelector("#admin-trip-list [data-edit-trip]", { state: "attached" });
+  await page.goto("http://127.0.0.1:4174/#admin", { waitUntil: "domcontentloaded" });
+  await page.waitForSelector("#admin-trip-list [data-edit-trip]", { state: "attached", timeout: 10000 }).catch((error) => {
+    throw new Error(`${error.message}\nBrowser errors:\n${errors.join("\n") || "(none)"}`);
+  });
   await page.click("#new-trip-button");
   await page.fill("#trip-form-name", "北京春日");
   await page.fill("#trip-form-markdown", "# 北京春日");
-  await page.selectOption("#trip-form-places", ["cn-140100"]);
+  await page.selectOption("#trip-form-province", "140000");
+  await page.selectOption("#trip-form-city", "CN:140100");
+  await page.click("#trip-form-add-place");
   await page.check('#trip-form-tags input[value="tag-1"]');
   await page.click('#trip-form button[type="submit"]');
   await page.waitForFunction(() => document.querySelector("#trip-form-id").value === "trip-new");

@@ -1,0 +1,15 @@
+GeoNames geographical data attribution
+
+This product includes geographical data from GeoNames:
+https://www.geonames.org/
+
+The source dump is available from:
+https://download.geonames.org/export/dump/
+
+GeoNames data is licensed under the Creative Commons Attribution 4.0
+International License:
+https://creativecommons.org/licenses/by/4.0/
+
+The generated website asset contains the GeoNames cities15000 dataset
+(cities with a population over 15,000 or capitals) except mainland China,
+which continues to use the site's existing official Chinese city catalog.

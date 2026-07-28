@@ -34,6 +34,23 @@ const ensuredPlace = await call("/api/places", {
 }, 201);
 assert.equal(ensuredPlace.body.place.id, "cn-440100");
 
+const ensuredGlobalPlace = await call("/api/places", {
+  method: "POST",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify({
+    countryCode: "JP",
+    provinceCode: "40",
+    geoNameId: "1850147",
+    officialName: "Tokyo",
+    displayName: "Tokyo",
+    centerLat: 35.6895,
+    centerLng: 139.69171,
+    source: "geonames",
+  }),
+}, 201);
+assert.equal(ensuredGlobalPlace.body.place.id, "geo-jp-1850147");
+assert.equal(ensuredGlobalPlace.body.place.country_code, "JP");
+
 const tagsBefore = await call("/api/tags");
 assert.ok(tagsBefore.body.tags.some((tag) => tag.name === "游记" && tag.is_system));
 
@@ -55,7 +72,7 @@ const trip = await call("/api/trips", {
     visibility: "public",
     status: "published",
     markdown: "# 本地集成旅行",
-    placeIds: ["cn-140100"],
+    placeIds: ["cn-140100", ensuredGlobalPlace.body.place.id],
     tagIds: [tag.body.tag.id],
   }),
 }, 201);
@@ -183,6 +200,10 @@ const search = await call("/api/search?q=%E5%8F%A4%E5%BB%BA");
 assert.ok(search.body.results.some((entry) => entry.id === tripId));
 const map = await call("/api/map");
 assert.ok(map.body.cities.some((entry) => entry.city_code === "140100"));
+assert.ok(!map.body.cities.some((entry) => entry.city_code === "gn-1850147"));
+const stats = await call("/api/stats");
+assert.ok(stats.body.stats.cities >= 2);
+assert.ok(stats.body.stats.images >= 1);
 await call("/api/export?format=json");
 await call("/api/admin/invitations", {
   method: "POST",
@@ -224,9 +245,9 @@ process.stdout.write(JSON.stringify({
   tripId,
   mediaId,
   tested: [
-    "session", "province-city place creation", "tags", "trip CRUD", "multipart R2 upload", "media metadata",
+    "session", "China and GeoNames place creation", "tags", "trip CRUD", "multipart R2 upload", "media metadata",
     "web, thumbnail and metadata-stripped full-size variants", "privacy-safe public preview and download", "visual smart sorting without identity recognition", "automatic trip dates", "Markdown media references", "likes and admin-only liker list", "private favorites collection",
-    "trash restore", "Markdown version restore", "search", "map aggregation", "export", "invitations", "settings",
+    "trash restore", "Markdown version restore", "search", "China map and global site statistics", "export", "invitations", "settings",
     "editor ownership guard", "admin-only guard", "trip trash and restore",
   ],
 }, null, 2));
