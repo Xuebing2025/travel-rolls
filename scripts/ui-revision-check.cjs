@@ -9,11 +9,11 @@ const { chromium } = require(
   });
   const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
   const errors = [];
-  page.on("pageerror", (error) => errors.push(error.message));
+  page.on("pageerror", (error) => errors.push(error.stack || error.message));
   await page.route(/\/config\.js(?:\?.*)?$/, (route) =>
     route.fulfill({ contentType: "application/javascript", body: "window.TRAVEL_ROLLS_CONFIG={};" })
   );
-  await page.goto("http://127.0.0.1:4174", { waitUntil: "networkidle" });
+  await page.goto("http://127.0.0.1:4174", { waitUntil: "domcontentloaded" });
   await page.evaluate(() => document.fonts.ready);
   const typography = await page.evaluate(() => ({
     wenkaiLoaded: document.fonts.check('16px "LXGW WenKai GB Web"'),
@@ -23,10 +23,20 @@ const { chromium } = require(
   }));
   const initialHomeLegacyTrips = await page.locator('.home-grid [data-open-trip]').count();
   const initialLoadingRolls = await page.locator(".home-grid .loading-roll").count();
+  const introBridge = await page.evaluate(() => {
+    let cleaned = false;
+    const mounted = TravelRollsIntro.mount((root) => {
+      root.textContent = "FRAMER READY";
+      return () => { cleaned = true; };
+    }, { respectReducedMotion: false });
+    const visibleWhileMounted = !TravelRollsIntro.root.hidden && document.body.classList.contains("intro-motion-active");
+    TravelRollsIntro.complete("test");
+    return { mounted, visibleWhileMounted, cleaned, hiddenAfterComplete: TravelRollsIntro.root.hidden };
+  });
   await page.evaluate(() => {
     renderHomeStats(
       [{ id: "trip-1" }, { id: "trip-2" }, { id: "trip-3" }],
-      [{ city_code: "140100", media_count: 49 }, { city_code: "140200", media_count: 72 }]
+      { trips: 3, cities: 2, images: 121 }
     );
   });
   const homeStats = await page.locator(".stats dd").allTextContents();
@@ -67,27 +77,35 @@ const { chromium } = require(
   const gridColumns = await page.locator("#trip-gallery").evaluate((element) =>
     getComputedStyle(element).gridTemplateColumns.split(" ").length
   );
+  const gridCaptionsHidden = await page.locator("#trip-gallery figcaption").count() === 0;
+  const gridUsesOriginalRatio = await page.locator('[data-preview-media="media-a"]').evaluate(
+    (element) => getComputedStyle(element).aspectRatio === "auto"
+  );
+  await page.click("#tag-editor-toggle");
+  await page.click("#trip-date");
+  const tagEditorClosedOutside = await page.locator("#tag-editor").evaluate((element) => element.hidden);
   await page.screenshot({ path: "D:/CodexProject/ui-revision-trip.png", fullPage: true });
   await page.locator('[data-preview-media="media-a"]').click();
   const previewOpen = await page.locator("#media-preview-dialog[open]").count() === 1;
+  const previewActionLabels = await page.locator("#media-preview-actions button").evaluateAll(
+    (buttons) => buttons.map((button) => button.getAttribute("aria-label"))
+  );
+  await page.click('[data-preview-media-more="media-a"]');
+  const moreActions = await page.locator("#media-preview-more-menu").innerText();
   await page.click("#media-preview-close");
-  await page.locator('[data-media-more="media-a"]').click();
-  const moreActions = await page.locator("#media-action-menu").innerText();
-  await page.keyboard.press("Escape");
   await page.locator('[data-public-media="media-a"]').click({ button: "right" });
   const contextActions = await page.locator("#media-action-menu").innerText();
   await page.click('[data-gallery-layout="masonry"]');
-  const masonryActionsHidden = await page.locator(
-    '#trip-gallery.masonry [data-public-media="media-a"] figcaption'
-  ).evaluate((element) => getComputedStyle(element).display === "none");
+  const masonryActionsHidden = await page.locator("#trip-gallery.masonry figcaption").count() === 0;
   await page.evaluate(() => {
     apiRequest = async (path, options = {}) => {
       if (path === "/api/places" && options.method === "POST") {
         const city = JSON.parse(options.body);
+        const isChina = city.countryCode === "CN";
         return {
           place: {
-            id: `cn-${city.cityCode}`,
-            country_code: "CN",
+            id: isChina ? `cn-${city.cityCode}` : `geo-${city.countryCode.toLowerCase()}-${city.geoNameId}`,
+            country_code: city.countryCode,
             province_code: city.provinceCode,
             city_code: city.cityCode,
             official_name: city.officialName,
@@ -105,25 +123,61 @@ const { chromium } = require(
     setAdminTab("trips");
     renderPlaceOptions();
   });
+  await page.waitForFunction(() => document.querySelectorAll("#trip-form-country optgroup").length > 0);
+  const countryGroups = await page.locator("#trip-form-country optgroup").allTextContents();
+  const defaultCountry = await page.locator("#trip-form-country").inputValue();
   await page.selectOption("#trip-form-province", "140000");
   await page.waitForFunction(() => document.querySelector("#trip-form-city").options.length > 1);
   const cityOptionCount = await page.locator("#trip-form-city option").count();
-  await page.selectOption("#trip-form-city", "140100");
+  await page.selectOption("#trip-form-city", "CN:140100");
   await page.click("#trip-form-add-place");
   await page.waitForFunction(() => document.querySelector("#trip-form-selected-places").textContent.includes("太原"));
-  const selectedCity = await page.locator("#trip-form-selected-places").innerText();
+  await page.selectOption("#trip-form-country", "US");
+  await page.waitForFunction(() => document.querySelector("#trip-form-city").options.length > 100);
+  const internationalCityCount = await page.locator("#trip-form-city option").count();
+  const newYorkValue = await page.locator("#trip-form-city").evaluate((select) =>
+    [...select.options].find((option) => option.textContent.includes("New York City"))?.value || ""
+  );
+  await page.selectOption("#trip-form-city", newYorkValue);
+  await page.click("#trip-form-add-place");
+  await page.waitForFunction(() => document.querySelector("#trip-form-selected-places").textContent.includes("New York"));
+  const selectedCities = await page.locator("#trip-form-selected-places").innerText();
+  const englishCountriesSorted = await page.evaluate(() => {
+    document.documentElement.lang = "en";
+    document.dispatchEvent(new CustomEvent("travelrolls:language-change"));
+    const names = [...document.querySelectorAll("#trip-form-country optgroup:first-of-type option")]
+      .map((option) => option.textContent);
+    const expected = [...names].sort((left, right) => new Intl.Collator("en").compare(left, right));
+    const sorted = names.every((name, index) => name === expected[index]);
+    document.documentElement.lang = "zh-CN";
+    document.dispatchEvent(new CustomEvent("travelrolls:language-change"));
+    return sorted;
+  });
+  const adminTripHeaderSize = await page.locator("#admin-trip-list > .table-head").evaluate(
+    (element) => getComputedStyle(element).fontSize
+  );
 
   const report = {
     toolbar: await page.locator(".gallery-toolbar").innerText(),
     gridColumns,
+    gridCaptionsHidden,
+    gridUsesOriginalRatio,
     previewOpen,
+    previewActionLabels,
     moreActions,
     contextActions,
     masonryActionsHidden,
+    tagEditorClosedOutside,
+    introBridge,
     adminTabs: await page.locator(".admin-tabs").allTextContents(),
+    countryGroups,
+    defaultCountry,
     provincePickerPresent: await page.locator("#trip-form-province").count() === 1,
     cityOptionCount,
-    selectedCity,
+    internationalCityCount,
+    selectedCities,
+    englishCountriesSorted,
+    adminTripHeaderSize,
     initialHomeLegacyTrips,
     initialLoadingRolls,
     homeStats,

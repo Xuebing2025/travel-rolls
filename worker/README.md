@@ -11,7 +11,8 @@ Cloudflare Workers + D1 + R2 的可迁移业务后端。
 - `GET|POST|PATCH|DELETE /api/trips...`（旅行、版本、分享、城市、标签与排序）
 - `GET|POST|PATCH|DELETE /api/admin...`（邀请、账号、概览与审计）
 - `GET|POST|PATCH|DELETE /api/media...`（元数据、派生图、回收站、点赞、收藏与下载）
-- `GET /api/map`、`GET /api/search`、`GET /api/favorites`
+- `GET /api/map`、`GET /api/stats`、`GET /api/search`、`GET /api/favorites`
+- `GET|POST /api/places`（中国地级市与 GeoNames 境外主要城市）
 - `GET|PATCH /api/settings`、`GET /api/export`、`GET /api/trash`
 - `GET|POST /_AMapService/*`（高德安全密钥代理，仅允许高德固定服务路径）
 - `POST /api/uploads/initiate`

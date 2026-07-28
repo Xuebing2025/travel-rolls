@@ -61,6 +61,8 @@ let authUser = null;
 const serverTripDetails = new Map();
 const publicGalleryMedia = new Map();
 const provinceCityChoices = new Map();
+let worldPlaceData = window.TRAVEL_ROLLS_WORLD_DATA || { countries: [], cities: {} };
+let worldPlaceDataPromise = null;
 let publicTripRecords = [];
 const adminState = {
   loaded: false,
@@ -167,6 +169,13 @@ function showToast(message) {
   toast.textContent = message;
   toast.classList.add("show");
   toastTimer = setTimeout(() => toast.classList.remove("show"), 2600);
+}
+
+function setTagEditorOpen(open) {
+  const editor = document.querySelector("#tag-editor");
+  editor.hidden = !open;
+  document.querySelector("#tag-editor-toggle").setAttribute("aria-expanded", String(open));
+  if (open) document.querySelector("#tag-name").focus();
 }
 
 function renderTripTags() {
@@ -531,10 +540,12 @@ function renderTripCoordinates(places) {
     const name = document.createElement("dt");
     name.textContent = place.display_name || place.official_name;
     const center = document.createElement("dd");
+    const latitude = Number(place.center_lat);
+    const longitude = Number(place.center_lng);
     center.append(
-      document.createTextNode(`${Number(place.center_lat).toFixed(4)}° N`),
+      document.createTextNode(`${Math.abs(latitude).toFixed(4)}° ${latitude < 0 ? "S" : "N"}`),
       document.createElement("br"),
-      document.createTextNode(`${Number(place.center_lng).toFixed(4)}° E`)
+      document.createTextNode(`${Math.abs(longitude).toFixed(4)}° ${longitude < 0 ? "W" : "E"}`)
     );
     row.append(name, center);
     list.append(row);
@@ -581,43 +592,7 @@ function renderPublicGallery(mediaItems) {
     visual.loading = "lazy";
     visual.dataset.previewMedia = media.id;
     if (media.kind === "video") visual.controls = true;
-    const caption = document.createElement("figcaption");
-    const copy = document.createElement("span");
-    copy.textContent = media.description || `${media.place_name} · ${media.captured_at?.slice(0, 10) || "时间待完善"}`;
-    const actions = document.createElement("span");
-    const like = document.createElement("button");
-    like.type = "button";
-    like.dataset.likeMedia = media.id;
-    const likeIcon = document.createElement("span");
-    likeIcon.className = "media-action-icon";
-    likeIcon.textContent = media.liked ? "♥" : "♡";
-    const likeCount = document.createElement("span");
-    likeCount.textContent = String(media.like_count || 0);
-    like.append(likeIcon, likeCount);
-    like.setAttribute("aria-label", `点赞，当前 ${media.like_count || 0} 次`);
-    like.disabled = !authUser;
-    like.title = authUser ? "点赞这张照片" : "登录后可以点赞";
-    const favorite = document.createElement("button");
-    favorite.type = "button";
-    favorite.dataset.favoriteMedia = media.id;
-    const favoriteIcon = document.createElement("span");
-    favoriteIcon.className = "media-action-icon";
-    favoriteIcon.textContent = media.favorited ? "★" : "☆";
-    favorite.append(favoriteIcon);
-    favorite.setAttribute("aria-label", media.favorited ? "取消收藏" : "收藏");
-    favorite.disabled = !authUser;
-    favorite.title = authUser ? "加入私人收藏" : "登录后可以收藏";
-    const more = document.createElement("button");
-    more.type = "button";
-    more.dataset.mediaMore = media.id;
-    const moreIcon = document.createElement("span");
-    moreIcon.className = "media-action-icon";
-    moreIcon.textContent = "•••";
-    more.append(moreIcon);
-    more.setAttribute("aria-label", "更多照片操作");
-    actions.append(like, favorite, more);
-    caption.append(copy, actions);
-    figure.append(visual, caption);
+    figure.append(visual);
     gallery.append(figure);
   });
 }
@@ -637,22 +612,22 @@ function createMediaActionButton(label, dataset = {}) {
   return button;
 }
 
-function buildMediaActions(container, media, tripId, compact = false) {
+function buildMediaActions(container, media, tripId) {
   container.replaceChildren();
   if (authUser) {
     container.append(createMediaActionButton(
-      compact ? "↓ 原图" : "下载原图",
+      "下载原图",
       { downloadMedia: media.id, mediaKind: media.kind }
     ));
     if (media.kind === "image") {
       container.append(createMediaActionButton(
-        compact ? "↓ 水印" : "下载水印版",
+        "下载水印版",
         { downloadMedia: media.id, mediaKind: media.kind, watermark: "1" }
       ));
     }
   }
   if (media.kind === "image" && canEditTrip(tripId)) {
-    container.append(createMediaActionButton("设为封面照片", { setCoverMedia: media.id, coverTrip: tripId }));
+    container.append(createMediaActionButton("设为封面图片", { setCoverMedia: media.id, coverTrip: tripId }));
   }
   if (!container.children.length) {
     const unavailable = document.createElement("span");
@@ -675,6 +650,30 @@ function hideMediaActionMenu() {
   document.querySelector("#media-action-menu").hidden = true;
 }
 
+function renderMediaPreviewActions(media) {
+  const container = document.querySelector("#media-preview-actions");
+  container.replaceChildren();
+  const like = createMediaActionButton(media.liked ? "♥" : "♡", { likeMedia: media.id });
+  like.setAttribute("aria-label", `点赞，当前 ${media.like_count || 0} 次`);
+  like.title = authUser ? "点赞这张照片" : "登录后可以点赞";
+  const favorite = createMediaActionButton(media.favorited ? "★" : "☆", { favoriteMedia: media.id });
+  favorite.setAttribute("aria-label", media.favorited ? "取消收藏" : "收藏");
+  favorite.title = authUser ? "加入私人收藏" : "登录后可以收藏";
+  const more = createMediaActionButton("•••", { previewMediaMore: media.id });
+  more.setAttribute("aria-label", "更多照片操作");
+  container.append(like, favorite, more);
+}
+
+function hidePreviewMoreMenu() {
+  document.querySelector("#media-preview-more-menu").hidden = true;
+}
+
+function showPreviewMoreMenu(media) {
+  const menu = document.querySelector("#media-preview-more-menu");
+  buildMediaActions(menu, media, activeTripId);
+  menu.hidden = false;
+}
+
 function openMediaPreview(media) {
   const dialog = document.querySelector("#media-preview-dialog");
   const visualContainer = document.querySelector("#media-preview-visual");
@@ -689,7 +688,8 @@ function openMediaPreview(media) {
   document.querySelector("#media-preview-title").textContent = media.description || media.original_filename || "旅行照片";
   document.querySelector("#media-preview-meta").textContent =
     `${media.place_name} · ${media.captured_at?.slice(0, 10) || "时间待完善"}`;
-  buildMediaActions(document.querySelector("#media-preview-actions"), media, activeTripId, true);
+  hidePreviewMoreMenu();
+  renderMediaPreviewActions(media);
   dialog.showModal();
 }
 
@@ -864,12 +864,97 @@ function renderPlaceOptions(selectedIds = []) {
   adminState.places.forEach((place) => {
     const option = document.createElement("option");
     option.value = place.id;
-    option.textContent = `${place.display_name || place.official_name} · ${place.city_code}`;
+    option.textContent = place.display_name || place.official_name;
+    option.title = `${place.country_code || "CN"} · ${place.city_code}`;
     option.selected = selected.has(place.id);
     select.append(option);
   });
   renderSelectedPlaces();
+  initializeCountryPicker();
   initializeProvincePicker();
+}
+
+const continentNames = {
+  zh: { AS: "亚洲", EU: "欧洲", AF: "非洲", NA: "北美洲", SA: "南美洲", OC: "大洋洲", AN: "南极洲" },
+  en: { AS: "Asia", EU: "Europe", AF: "Africa", NA: "North America", SA: "South America", OC: "Oceania", AN: "Antarctica" },
+};
+const continentOrder = ["AS", "EU", "AF", "NA", "SA", "OC", "AN"];
+const obsoleteCountryCodes = new Set(["AN", "CS"]);
+const chineseRegionNames = {
+  EH: "西撒哈拉",
+  HK: "中国香港特别行政区",
+  MO: "中国澳门特别行政区",
+  TW: "中国台湾",
+};
+
+function loadWorldPlaceData() {
+  if (worldPlaceData.countries.length) return Promise.resolve(worldPlaceData);
+  if (worldPlaceDataPromise) return worldPlaceDataPromise;
+  worldPlaceDataPromise = new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = new URL("./world-data.js?v=20260728a", document.baseURI).href;
+    script.async = true;
+    script.addEventListener("load", () => {
+      worldPlaceData = window.TRAVEL_ROLLS_WORLD_DATA || { countries: [], cities: {} };
+      if (!worldPlaceData.countries.length) {
+        reject(new Error("world_place_data_empty"));
+        return;
+      }
+      initializeCountryPicker(true);
+      resolve(worldPlaceData);
+    }, { once: true });
+    script.addEventListener("error", () => reject(new Error("world_place_data_failed")), { once: true });
+    document.head.append(script);
+  }).catch((error) => {
+    worldPlaceDataPromise = null;
+    document.querySelector("#trip-form-place-status").textContent =
+      "境外城市数据载入失败；仍可继续选择中国城市，稍后可重试。";
+    throw error;
+  });
+  return worldPlaceDataPromise;
+}
+
+function placePickerLanguage() {
+  return document.documentElement.lang.toLowerCase().startsWith("en") ? "en" : "zh";
+}
+
+function countryName(countryCode, language = placePickerLanguage()) {
+  if (language === "zh" && chineseRegionNames[countryCode]) return chineseRegionNames[countryCode];
+  const locale = language === "en" ? "en" : "zh-CN";
+  return new Intl.DisplayNames([locale], { type: "region" }).of(countryCode) || countryCode;
+}
+
+function initializeCountryPicker(force = false) {
+  const select = document.querySelector("#trip-form-country");
+  if (!force && select.options.length) return;
+  const current = select.value || "CN";
+  if (!worldPlaceData.countries.length) {
+    select.replaceChildren(new Option(countryName("CN"), "CN"));
+    select.value = "CN";
+    loadWorldPlaceData().catch(() => {});
+    return;
+  }
+  const language = placePickerLanguage();
+  const collator = new Intl.Collator(language === "en" ? "en" : "zh-CN-u-co-pinyin");
+  const countriesByContinent = new Map(continentOrder.map((continent) => [continent, []]));
+  worldPlaceData.countries.forEach(([countryCode, continent]) => {
+    if (!countriesByContinent.has(continent) || obsoleteCountryCodes.has(countryCode)) return;
+    countriesByContinent.get(continent).push({
+      countryCode,
+      name: countryName(countryCode, language),
+    });
+  });
+  select.replaceChildren();
+  continentOrder.forEach((continent) => {
+    const countries = countriesByContinent.get(continent);
+    if (!countries.length) return;
+    countries.sort((left, right) => collator.compare(left.name, right.name));
+    const group = document.createElement("optgroup");
+    group.label = continentNames[language][continent];
+    countries.forEach(({ countryCode, name }) => group.append(new Option(name, countryCode)));
+    select.append(group);
+  });
+  select.value = [...select.options].some((option) => option.value === current) ? current : "CN";
 }
 
 function initializeProvincePicker() {
@@ -880,6 +965,66 @@ function initializeProvincePicker() {
   });
 }
 
+function populateInternationalCities(countryCode) {
+  const citySelect = document.querySelector("#trip-form-city");
+  const status = document.querySelector("#trip-form-place-status");
+  const language = placePickerLanguage();
+  const collator = new Intl.Collator(language === "en" ? "en" : "zh-CN-u-co-pinyin");
+  const cities = [...(worldPlaceData.cities[countryCode] || [])].map(
+    ([geoNameId, name, asciiName, centerLat, centerLng, provinceCode, population]) => ({
+      countryCode,
+      geoNameId,
+      provinceCode,
+      cityCode: `gn-${geoNameId}`,
+      officialName: name,
+      displayName: language === "en" ? asciiName : name,
+      centerLat,
+      centerLng,
+      population,
+      source: "geonames",
+    })
+  );
+  cities.sort((left, right) =>
+    collator.compare(left.displayName, right.displayName) || right.population - left.population
+  );
+  provinceCityChoices.clear();
+  citySelect.replaceChildren(new Option(cities.length ? "选择城市" : "该国家暂无城市数据", ""));
+  const fragment = document.createDocumentFragment();
+  cities.forEach((city) => {
+    const key = `${countryCode}:${city.geoNameId}`;
+    provinceCityChoices.set(key, city);
+    const localAndEnglish = city.officialName !== city.displayName
+      ? `${city.displayName} / ${city.officialName}`
+      : city.displayName;
+    fragment.append(new Option(localAndEnglish, key));
+  });
+  citySelect.append(fragment);
+  citySelect.disabled = !cities.length;
+  document.querySelector("#trip-form-add-place").disabled = true;
+  status.textContent = cities.length
+    ? `已载入 ${countryName(countryCode)}的 ${cities.length} 个主要城市（GeoNames）。`
+    : "该国家暂无可用城市数据。";
+}
+
+function updateCountryPlacePicker(countryCode) {
+  const provinceField = document.querySelector("#trip-form-province-field");
+  const provinceSelect = document.querySelector("#trip-form-province");
+  const citySelect = document.querySelector("#trip-form-city");
+  const addButton = document.querySelector("#trip-form-add-place");
+  provinceField.hidden = countryCode !== "CN";
+  provinceSelect.value = "";
+  addButton.disabled = true;
+  provinceCityChoices.clear();
+  if (countryCode === "CN") {
+    citySelect.replaceChildren(new Option("请先选择省份", ""));
+    citySelect.disabled = true;
+    document.querySelector("#trip-form-place-status").textContent =
+      "中国城市使用站内地级市数据；境外主要城市来自 GeoNames。";
+    return;
+  }
+  populateInternationalCities(countryCode);
+}
+
 function renderSelectedPlaces() {
   const selectedList = document.querySelector("#trip-form-selected-places");
   const select = document.querySelector("#trip-form-places");
@@ -888,7 +1033,7 @@ function renderSelectedPlaces() {
     const remove = document.createElement("button");
     remove.type = "button";
     remove.dataset.removeTripPlace = option.value;
-    remove.textContent = option.textContent.replace(/\s*·\s*\d{6}$/, "");
+    remove.textContent = option.textContent;
     remove.setAttribute("aria-label", `移除城市 ${remove.textContent}`);
     selectedList.append(remove);
   });
@@ -980,13 +1125,10 @@ function resetTripForm() {
   document.querySelector("#trip-delete-button").hidden = true;
   document.querySelector("#trip-share-button").hidden = true;
   document.querySelector("#trip-form-cover").replaceChildren(new Option("创建旅行并上传照片后再选择", ""));
-  document.querySelector("#trip-form-city").replaceChildren(new Option("请先选择省份", ""));
-  document.querySelector("#trip-form-city").disabled = true;
-  document.querySelector("#trip-form-add-place").disabled = true;
-  document.querySelector("#trip-form-place-status").textContent =
-    "城市数据已内置于站点；已加入的城市会保存在站点数据库中。";
   document.querySelector("#trip-version-list").replaceChildren();
   renderPlaceOptions();
+  document.querySelector("#trip-form-country").value = "CN";
+  updateCountryPlacePicker("CN");
   renderTripTagChoices();
   setFormStatus("#trip-form-status-message", "");
 }
@@ -1091,10 +1233,10 @@ async function refreshSession() {
 
 async function loadPublicContent() {
   if (!apiBase) return;
-  const [body, settingsBody, mapBody] = await Promise.all([
+  const [body, settingsBody, statsBody] = await Promise.all([
     apiRequest("/api/trips", { method: "GET", headers: {} }),
     apiRequest("/api/settings", { method: "GET", headers: {} }),
-    apiRequest("/api/map", { method: "GET", headers: {} }).catch(() => null),
+    apiRequest("/api/stats", { method: "GET", headers: {} }).catch(() => null),
   ]);
   const records = body.trips || [];
   publicTripRecords = records;
@@ -1103,18 +1245,20 @@ async function loadPublicContent() {
     document.querySelector("#site-subtitle").value = settingsBody.settings.subtitle;
   }
   renderArchiveRecords(records);
-  renderHomeStats(records, mapBody?.cities);
+  renderHomeStats(records, statsBody?.stats);
   await preloadHomeCovers(records.slice(0, 5));
   renderHomeRecords(records.slice(0, 5));
 }
 
-function renderHomeStats(records, cities) {
-  const tripCount = Array.isArray(records) ? records.length : 0;
+function renderHomeStats(records, stats) {
+  const tripCount = Number.isFinite(Number(stats?.trips))
+    ? Number(stats.trips)
+    : Array.isArray(records) ? records.length : 0;
   document.querySelector("#home-trip-count").textContent = String(tripCount).padStart(2, "0");
   document.querySelector(".stage-footer").firstElementChild.textContent = `${tripCount} ROLLS`;
-  if (!Array.isArray(cities)) return;
-  const cityCount = cities.length;
-  const imageCount = cities.reduce((total, city) => total + Number(city.media_count || 0), 0);
+  if (!stats) return;
+  const cityCount = Number(stats.cities || 0);
+  const imageCount = Number(stats.images || 0);
   document.querySelector("#home-city-count").textContent = String(cityCount).padStart(2, "0");
   document.querySelector("#home-image-count").textContent = String(imageCount).padStart(2, "0");
   document.querySelector("#home-frame-count").textContent = `${imageCount} FRAMES`;
@@ -1505,11 +1649,18 @@ document.querySelector("#media-preview-dialog").addEventListener("click", (event
 });
 document.querySelector("#media-preview-dialog").addEventListener("close", () => {
   document.querySelector("#media-preview-visual").replaceChildren();
+  hidePreviewMoreMenu();
 });
 
 document.addEventListener("click", async (event) => {
+  if (!event.target.closest("#tag-editor") && !event.target.closest("#tag-editor-toggle")) {
+    setTagEditorOpen(false);
+  }
   if (!event.target.closest("#media-action-menu") && !event.target.closest("[data-media-more]")) {
     hideMediaActionMenu();
+  }
+  if (!event.target.closest("#media-preview-more-menu") && !event.target.closest("[data-preview-media-more]")) {
+    hidePreviewMoreMenu();
   }
   const previewMedia = event.target.closest("[data-preview-media]");
   if (previewMedia) {
@@ -1523,6 +1674,16 @@ document.addEventListener("click", async (event) => {
     if (media) {
       const rect = moreMedia.getBoundingClientRect();
       showMediaActionMenu(media, activeTripId, rect.right, rect.bottom + 5);
+    }
+    return;
+  }
+  const previewMore = event.target.closest("[data-preview-media-more]");
+  if (previewMore) {
+    const media = publicGalleryMedia.get(previewMore.dataset.previewMediaMore);
+    if (media) {
+      const menu = document.querySelector("#media-preview-more-menu");
+      if (menu.hidden) showPreviewMoreMenu(media);
+      else hidePreviewMoreMenu();
     }
     return;
   }
@@ -1541,6 +1702,7 @@ document.addEventListener("click", async (event) => {
       }
       await loadPublicContent();
       hideMediaActionMenu();
+      hidePreviewMoreMenu();
       showToast("已设为首页封面照片");
     } catch (error) {
       showToast(apiErrorMessage(error));
@@ -1753,10 +1915,15 @@ document.addEventListener("click", async (event) => {
       const direct = new URLSearchParams(location.search);
       const share = direct.get("trip") === activeTripId ? direct.get("share") : "";
       await apiRequest(`/api/media/${encodeURIComponent(mediaId)}/${kind}${share ? `?share=${encodeURIComponent(share)}` : ""}`, { method: "POST", body: "{}" });
+      const previewOpen = document.querySelector("#media-preview-dialog").open;
       if (document.querySelector('[data-view="favorites"]').classList.contains("active")) {
         await loadFavorites();
       } else {
         await loadPublicGallery(activeTripId, document.querySelector("[data-gallery-sort].active")?.dataset.gallerySort || "manual");
+        if (previewOpen) {
+          const updatedMedia = publicGalleryMedia.get(mediaId);
+          if (updatedMedia) renderMediaPreviewActions(updatedMedia);
+        }
       }
     } catch (error) {
       showToast(apiErrorMessage(error));
@@ -1774,6 +1941,8 @@ document.addEventListener("click", async (event) => {
         downloadButton.dataset.watermark === "1",
         downloadButton.dataset.mediaKind
       );
+      hideMediaActionMenu();
+      hidePreviewMoreMenu();
       showToast(downloadButton.dataset.watermark === "1" ? "水印照片已生成" : "下载已开始");
     } catch (error) {
       showToast(apiErrorMessage(error));
@@ -2399,6 +2568,15 @@ document.querySelector("#new-trip-button").addEventListener("click", () => {
 
 document.querySelector("#trip-form-reset").addEventListener("click", resetTripForm);
 
+document.querySelector("#trip-form-country").addEventListener("change", (event) => {
+  updateCountryPlacePicker(event.target.value);
+});
+
+document.addEventListener("travelrolls:language-change", () => {
+  initializeCountryPicker(true);
+  updateCountryPlacePicker(document.querySelector("#trip-form-country").value || "CN");
+});
+
 document.querySelector("#trip-form-province").addEventListener("change", async (event) => {
   const citySelect = document.querySelector("#trip-form-city");
   const addButton = document.querySelector("#trip-form-add-place");
@@ -2407,14 +2585,16 @@ document.querySelector("#trip-form-province").addEventListener("change", async (
   citySelect.disabled = true;
   addButton.disabled = true;
   provinceCityChoices.clear();
+  if (document.querySelector("#trip-form-country").value !== "CN") return;
   if (!event.target.value) return;
   status.textContent = "正在读取站内城市数据…";
   try {
     const cities = await window.TravelRollsMap.listProvinceCities(event.target.value);
     citySelect.replaceChildren(new Option("选择城市", ""));
     cities.forEach((city) => {
-      provinceCityChoices.set(city.cityCode, city);
-      citySelect.add(new Option(`${city.displayName} · ${city.cityCode}`, city.cityCode));
+      const key = `CN:${city.cityCode}`;
+      provinceCityChoices.set(key, { ...city, countryCode: "CN" });
+      citySelect.add(new Option(`${city.displayName} · ${city.cityCode}`, key));
     });
     citySelect.disabled = !cities.length;
     status.textContent = cities.length ? `已载入 ${cities.length} 个城市或地区。` : "该省份暂无可用城市数据。";
@@ -2430,10 +2610,11 @@ document.querySelector("#trip-form-city").addEventListener("change", (event) => 
 });
 
 document.querySelector("#trip-form-add-place").addEventListener("click", async (event) => {
-  const cityCode = document.querySelector("#trip-form-city").value;
-  const city = provinceCityChoices.get(cityCode);
+  const addButton = event.currentTarget;
+  const cityKey = document.querySelector("#trip-form-city").value;
+  const city = provinceCityChoices.get(cityKey);
   if (!city) return;
-  event.currentTarget.disabled = true;
+  addButton.disabled = true;
   const status = document.querySelector("#trip-form-place-status");
   status.textContent = `正在加入${city.officialName}…`;
   try {
@@ -2454,7 +2635,7 @@ document.querySelector("#trip-form-add-place").addEventListener("click", async (
   } catch (error) {
     status.textContent = apiErrorMessage(error);
   } finally {
-    event.currentTarget.disabled = !document.querySelector("#trip-form-city").value;
+    addButton.disabled = !document.querySelector("#trip-form-city").value;
   }
 });
 
@@ -2745,10 +2926,7 @@ document.querySelector("#media-upload-form").addEventListener("submit", async (e
 
 document.querySelector("#tag-editor-toggle").addEventListener("click", () => {
   const editor = document.querySelector("#tag-editor");
-  const willOpen = editor.hidden;
-  editor.hidden = !willOpen;
-  document.querySelector("#tag-editor-toggle").setAttribute("aria-expanded", String(willOpen));
-  if (willOpen) document.querySelector("#tag-name").focus();
+  setTagEditorOpen(editor.hidden);
 });
 
 document.querySelector("#tag-form").addEventListener("submit", async (event) => {

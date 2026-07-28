@@ -23,6 +23,7 @@ export default {
       else if (url.pathname === "/api/places" && request.method === "GET") response = await listPlaces(request, env, url);
       else if (url.pathname === "/api/places" && request.method === "POST") response = await ensurePlace(request, env);
       else if (url.pathname === "/api/map" && request.method === "GET") response = await mapSummary(request, env);
+      else if (url.pathname === "/api/stats" && request.method === "GET") response = await siteStats(request, env);
       else if (url.pathname === "/api/settings" && request.method === "GET") response = await getSettings(env);
       else if (url.pathname === "/api/settings" && request.method === "PATCH") response = await updateSettings(request, env);
       else if (url.pathname === "/api/tags" && request.method === "GET") response = await listTags(request, env);
@@ -253,36 +254,46 @@ async function ensurePlace(request, env) {
   const user = await requireRole(request, env, ["editor", "admin"]);
   if (user instanceof Response) return user;
   const body = await readJson(request);
-  const provinceCode = cleanText(body.provinceCode, 6);
-  const cityCode = cleanText(body.cityCode, 6);
+  const countryCode = cleanText(body.countryCode || "CN", 2).toUpperCase();
+  const provinceCode = cleanText(body.provinceCode, countryCode === "CN" ? 6 : 24);
+  const geoNameId = cleanText(body.geoNameId, 16);
+  const cityCode = countryCode === "CN" ? cleanText(body.cityCode, 6) : `gn-${geoNameId}`;
   const officialName = cleanText(body.officialName, 80);
   const displayName = cleanText(body.displayName || body.officialName, 80);
   const centerLat = Number(body.centerLat);
   const centerLng = Number(body.centerLng);
-  const provinceCodeValid = /^\d{6}$/.test(provinceCode);
-  const cityCodeValid = /^\d{6}$/.test(cityCode);
-  const expectedProvince = `${cityCode.slice(0, 2)}0000`;
-  if (!provinceCodeValid || !cityCodeValid || provinceCode !== expectedProvince
+  const chinaCodesValid = /^\d{6}$/.test(provinceCode)
+    && /^\d{6}$/.test(cityCode)
+    && provinceCode === `${cityCode.slice(0, 2)}0000`;
+  const globalCodesValid = /^[A-Z]{2}$/.test(countryCode)
+    && countryCode !== "CN"
+    && /^\d{1,16}$/.test(geoNameId);
+  if (!(countryCode === "CN" ? chinaCodesValid : globalCodesValid)
     || !officialName || !displayName || !Number.isFinite(centerLat) || !Number.isFinite(centerLng)
     || centerLat < -90 || centerLat > 90 || centerLng < -180 || centerLng > 180) {
     return json({ error: "invalid_place" }, 400);
   }
-  const id = `cn-${cityCode}`;
+  const id = countryCode === "CN" ? `cn-${cityCode}` : `geo-${countryCode.toLowerCase()}-${geoNameId}`;
+  const mapDataVersion = countryCode === "CN" ? "amap-js-2026" : "geonames-cities15000-20260728";
   await env.DB.prepare(
     `INSERT INTO places(
        id,country_code,province_code,city_code,district_code,
        official_name,display_name,level,center_lat,center_lng,map_data_version
-     ) VALUES(?,'CN',?,?,NULL,?,?,'city',?,?,'amap-js-2026')
+     ) VALUES(?,?,?,?,NULL,?,?,'city',?,?,?)
      ON CONFLICT(id) DO UPDATE SET
+       province_code=excluded.province_code,city_code=excluded.city_code,
        official_name=excluded.official_name,display_name=excluded.display_name,
        center_lat=excluded.center_lat,center_lng=excluded.center_lng,
        map_data_version=excluded.map_data_version`
-  ).bind(id, provinceCode, cityCode, officialName, displayName, centerLat, centerLng).run();
+  ).bind(
+    id, countryCode, provinceCode || null, cityCode,
+    officialName, displayName, centerLat, centerLng, mapDataVersion
+  ).run();
   const place = await env.DB.prepare(
     `SELECT id,country_code,province_code,city_code,official_name,display_name,level,center_lat,center_lng
        FROM places WHERE id=?`
   ).bind(id).first();
-  await writeAudit(env, user.id, "place.ensure", "place", id, { provinceCode, cityCode });
+  await writeAudit(env, user.id, "place.ensure", "place", id, { countryCode, provinceCode, cityCode });
   return json({ place }, 201);
 }
 
@@ -299,11 +310,33 @@ async function mapSummary(request, env) {
        JOIN places p ON p.id=tp.place_id
        LEFT JOIN media m ON m.trip_id=t.id AND m.place_id=p.id
       WHERE t.status='published'
+        AND p.country_code='CN'
         AND (t.visibility='public' OR (?1 IS NOT NULL AND (?2='admin' OR t.author_id=?1)))
       GROUP BY p.id
       ORDER BY p.province_code,p.city_code`
   ).bind(user?.id || null, user?.role || null).all();
   return json({ cities: rows.results });
+}
+
+async function siteStats(request, env) {
+  const user = await currentUser(request, env);
+  const counts = await env.DB.prepare(
+    `SELECT COUNT(DISTINCT t.id) AS trips,
+            COUNT(DISTINCT tp.place_id) AS cities,
+            COUNT(DISTINCT CASE WHEN m.status='ready' THEN m.id END) AS images
+       FROM trips t
+       LEFT JOIN trip_places tp ON tp.trip_id=t.id
+       LEFT JOIN media m ON m.trip_id=t.id
+      WHERE t.status='published'
+        AND (t.visibility='public' OR (?1 IS NOT NULL AND (?2='admin' OR t.author_id=?1)))`
+  ).bind(user?.id || null, user?.role || null).first();
+  return json({
+    stats: {
+      trips: Number(counts?.trips || 0),
+      cities: Number(counts?.cities || 0),
+      images: Number(counts?.images || 0),
+    },
+  });
 }
 
 async function getSettings(env) {
@@ -1651,7 +1684,7 @@ async function canViewTrip(trip, user, shareHash) {
 async function enrichTrip(env, trip, user) {
   const [places, tags, counts] = await Promise.all([
     env.DB.prepare(
-      `SELECT p.id,p.province_code,p.city_code,p.official_name,p.display_name,p.level,p.center_lat,p.center_lng,tp.position
+      `SELECT p.id,p.country_code,p.province_code,p.city_code,p.official_name,p.display_name,p.level,p.center_lat,p.center_lng,tp.position
          FROM trip_places tp JOIN places p ON p.id=tp.place_id
         WHERE tp.trip_id=? ORDER BY tp.position`
     ).bind(trip.id).all(),
